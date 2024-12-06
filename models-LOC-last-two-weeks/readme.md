@@ -1,0 +1,1 @@
+This contains the models for the dataset with only the last two weeks. The assumption is that DNS data from previous weeks affect the model negatively. 
