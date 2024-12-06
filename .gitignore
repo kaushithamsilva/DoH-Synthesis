@@ -1,0 +1,7 @@
+*.pyc
+/dataset
+/figures
+/.venv
+*.out
+/synthesized
+checkpoints/
