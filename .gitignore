@@ -1,5 +1,5 @@
 *.pyc
-/dataset
+/dataset/processed
 /figures
 /.venv
 *.out

@@ -51,3 +51,6 @@ where:
 
 Please note that this is processed data, where TLS record information has been extracted from PCAP files. If you require access to the raw PCAP files, please get in touch with [sandra.siby@epfl.ch]() or marc.juarez@usc.edu.
 
+### Generating the processed data for the synthesis
+
+Please tun the json_to_csv.ipynb notebook in the code folder to generate the csv files necessary for the synthesis process. 
