@@ -69,16 +69,15 @@ def generate_samples_from_a_z(z, vae_model, sampling, num_samples=100):
 
     # Generate samples in a single call
     z_samples = sampling((z_mean, z_log_var))
-    synthesized_samples = vae_model.decode(z_samples)
 
-    return synthesized_samples
+    return z_samples 
 
 # Function to synthesize and write data in chunks
-def synthesize_and_write_to_csv(translated_z, source_test_df, vae_model, sampling, output_path, target_location, chunk_size=1000, num_samples=1000):
+def synthesize_and_write_to_csv(translated_z, source_test_df, vae_model, sampling, output_path, target_location, latent_dim, chunk_size=5, num_samples=1000):
     print("Synthesizing traces and writing to CSV...")
     
     # Write CSV header
-    columns = ['Location', 'Website'] + [str(i) for i in range(128)]
+    columns = ['Location', 'Website'] + [str(i) for i in range(latent_dim)]
     with open(output_path, mode='w') as file:
         file.write(','.join(columns) + '\n')  # Write the header line
 
@@ -142,7 +141,7 @@ if __name__ == '__main__':
 
     # for each translated z sample, synthesize 100 samples using the z_mean and z_var from the vae
     # Synthesize samples for each translated latent embedding
-    output_path = f"../../synthesized/{target_location}-VAE-Sampling.csv"
+    output_path = f"../../synthesized/{target_location}-VAE-Sampling-Z-Translations.csv"
 
     # Call the function to synthesize and write data
     synthesize_and_write_to_csv(
@@ -152,6 +151,7 @@ if __name__ == '__main__':
         sampling=Sampling(),
         output_path=output_path,
         target_location=target_location,
-        chunk_size=20,  # Adjust chunk size as needed
-        num_samples=100
+        latent_dim=latent_dim,
+        chunk_size=5,  # Adjust chunk size as needed
+        num_samples=10
     ) 
