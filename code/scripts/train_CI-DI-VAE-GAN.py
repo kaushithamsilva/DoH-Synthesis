@@ -87,10 +87,9 @@ def train_ci_di_vae_gan(vae_model, class_discriminator, domain_discriminator, ga
               f"Class Loss: {epoch_class_loss.result():.4f}, Domain Loss: {epoch_domain_loss.result():.4f}, "
               f"Discriminator Loss: {epoch_discriminator_loss.result():.4f}, Generator Loss: {epoch_generator_loss.result():.4f}")
 
-        if (epoch > 0) and (epoch % 20 == 0):
-            vae_model.save(
-                f"../../models-LOC2-LOC3/gan/ci_di_vae/ConvBased/domain_and_class/checkpoints/LOC2-LOC3-e{epoch}-gan.\
-                 keras")
+        if epoch % 20 == 0:
+            vae_model.save(f"../../models-LOC2-LOC3/gan/ci_di_vae/ConvBased/domain_and_class/checkpoints/LOC2-LOC3-e{epoch}-vae.keras")
+            gan_discriminator.save(f"../../models-LOC2-LOC3/gan/ci_di_vae/ConvBased/domain_and_class/checkpoints/LOC2-LOC3-e{epoch}-gan.keras")
 
 def linear_discriminator(input_dim, num_classes):
     return tf.keras.Sequential([
