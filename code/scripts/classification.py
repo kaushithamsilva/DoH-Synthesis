@@ -66,12 +66,12 @@ def preprocess_data_for_web_classification(df, train_location, test_location):
     return X_train, y_train, X_test, y_test, le
 
 
-def show_confusion_matrix_heatmap(cm, label_encoder, title, isAnnonated=True):
+def show_confusion_matrix_heatmap(cm, label_encoder, title, isAnnonated=True, figsize=(15, 15)):
     # Normalize the confusion matrix (optional)
     cm_normalized = cm.astype('float') / cm.sum(axis=1, keepdims=True)
 
     # Plot the confusion matrix
-    plt.figure(figsize=(15, 15))  # Adjust figure size as needed
+    plt.figure(figsize=figsize)  # Adjust figure size as needed
     if isAnnonated:
         sns.heatmap(cm_normalized, cmap="viridis", cbar=True, square=True, xticklabels=label_encoder.classes_, yticklabels=label_encoder.classes_)
     else:
