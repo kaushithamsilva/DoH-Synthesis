@@ -1,16 +1,19 @@
 import tensorflow as tf
 import numpy as np
 import pandas as pd
+import model_utils
 """
 Use the VAE models and train a Class Informed - VAE (CI-VAE) to get the clusters of same class together as possible
 """
 
+SAVE_PATH = "../../models-LOC2-LOC3/vae/ci_vae/ConvBased/domain_and_class/"
+CHECKPOINT = SAVE_PATH + "checkpoints/"
 
 def vae_loss(inputs, reconstructed, z_mean, z_log_var):
     mse_loss = tf.reduce_mean(tf.square(inputs - reconstructed))
     kl_loss = -0.5 * \
         tf.reduce_mean(1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var))
-    total_loss = mse_loss + 0.1 * kl_loss
+    total_loss = mse_loss + 0.0001 * kl_loss
     return total_loss
 
 
@@ -89,10 +92,9 @@ def train_ci_di_vae(vae_model, class_discriminator, domain_discriminator, train_
         print(f"Epoch {epoch+1}, Loss: {epoch_loss.result():.4f}, VAE Loss: {epoch_vae_loss.result():.4f}, Class Loss: {epoch_class_loss.result():.4f}, Domain Loss: {epoch_domain_loss.result():.4f}")
 
         if (epoch > 0) and (epoch % 20 == 0):
-            vae_model.save(
-                f"../../models-LOC2-LOC3/vae/ci_vae/ConvBased/domain_and_class/checkpoints/LOC2-LOC3-e{epoch}-mse1-kl_mixed-cl1.0-ConvBatchNorm-ldim{latent_dim}-hdim{hidden_dim}.keras")
-
-
+            model_utils.save_model(vae_model, CHECKPOINT, f'vae-e{epoch}-mse1-kl0.0001-cl1.0-ldim{latent_dim}-hdim{hidden_dim}')
+            model_utils.save_model(class_discriminator, CHECKPOINT, f'LOC2-LOC3-class-discriminator-e{epoch}')
+            model_utils.save_model(domain_discriminator, CHECKPOINT, f'LOC2-LOC3-domain-discriminator-e{epoch}')
 def train_ci_vae(vae_model, class_discriminator, train_dataset, optimizer, epochs):
     for epoch in range(epochs):
         epoch_loss = tf.keras.metrics.Mean()
@@ -203,35 +205,14 @@ if __name__ == '__main__':
     class_discriminator = linear_discriminator(latent_dim, 1500)
     domain_discriminator = linear_discriminator(latent_dim, 2)
 
-    vae_model = tf.keras.models.load_model(
-        f"../../models-LOC2-LOC3/vae/ci_vae/ConvBased/domain_and_class/LOC2-LOC3-e800-mse1-kl0.01-cl1.0-ConvBatchNorm-ldim{latent_dim}-hdim{hidden_dim}.keras")
-    class_discriminator = tf.keras.models.load_model(
-        f"../../models-LOC2-LOC3/vae/ci_vae/ConvBased/domain_and_class/linear_discriminators/class_discriminator-kl0.01.keras")
-    linear_discriminator = tf.keras.models.load_model(
-        f"../../models-LOC2-LOC3/vae/ci_vae/ConvBased/domain_and_class/linear_discriminators/domain_discriminator-kl0.01.keras")
    # Initialize optimizer
     optimizer = tf.keras.optimizers.Adam(learning_rate=1e-3)
 
-    # To continue training from a pretrained model freeze the vae model and train the discriminants first
-    # train_discriminant_for_pretrained_vae(
-    #     domain_discriminator, vae_model, x_train, d_train)
+    epochs = 1000
+    train_ci_di_vae(vae_model, class_discriminator, domain_discriminator, train_dataset, optimizer, epochs)
 
-    # train_discriminant_for_pretrained_vae(
-    #     class_discriminator, vae_model, x_train, y_train)
-
-    # Train the model
-    # vae_model.trainable = True
-    # class_discriminator.trainable = True
-    # domain_discriminator.trainable = True
-    epochs = 100
-    train_ci_di_vae(vae_model, class_discriminator, domain_discriminator,
-                    train_dataset, optimizer, epochs=epochs)
-
-    # Save the vae_model
-    vae_model.save(
-        f"../../models-LOC2-LOC3/vae/ci_vae/ConvBased/domain_and_class/LOC2-LOC3-e{epochs}-mse1-kl_mixed-cl1.0-ConvBatchNorm-ldim{latent_dim}-hdim{hidden_dim}.keras")
-
-    class_discriminator.save(
-        f"../../models-LOC2-LOC3/vae/ci_vae/ConvBased/domain_and_class/linear_discriminators/class_discriminator-kl_mixed.keras")
-    domain_discriminator.save(
-        f"../../models-LOC2-LOC3/vae/ci_vae/ConvBased/domain_and_class/linear_discriminators/domain_discriminator-kl_mixed.keras")
+    # save model
+    model_utils.save_model(vae_model, CHECKPOINT, f'vae-e{epochs}-mse1-kl0.0001-cl1.0-ldim{latent_dim}-hdim{hidden_dim}')
+    model_utils.save_model(class_discriminator, CHECKPOINT, f'LOC2-LOC3-class-discriminator-e{epochs}')
+    model_utils.save_model(domain_discriminator, CHECKPOINT, f'LOC2-LOC3-domain-discriminator-e{epochs}')
+                    
