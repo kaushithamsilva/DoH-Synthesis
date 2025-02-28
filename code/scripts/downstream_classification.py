@@ -219,6 +219,9 @@ def generate_hyperplane_samples(source_z, source_df, w, b, mean=0.0, std=1.0, n_
     """
     batch_size, latent_dim = source_z.shape
 
+    # normalize the normal vector
+    w = w / np.linalg.norm(w)
+
     # Generate Gaussian noise (alpha_samples) for all embeddings at once
     # shape: (batch_size, n_samples, latent_dim)
     alpha_samples = np.random.normal(
@@ -293,7 +296,7 @@ def generate_synthetic_data(source_df, w, b, vae_model):
     #                                      interpolated_df['Location'].values)
     #     synthetic_dfs.append(df_interp)
 
-    n_samples = 10
+    n_samples = 100
     print(f"Generating samples around hyperplane (n_samples={n_samples})...")
 
     # Generate the synthetic latent samples and their corresponding Website and Location labels
