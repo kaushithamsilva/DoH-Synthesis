@@ -3,7 +3,7 @@
 import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
+from sklearn.metrics import accuracy_score, classification_report, f1_score, confusion_matrix
 from sklearn.preprocessing import LabelEncoder
 import random
 from tensorflow import keras
@@ -385,3 +385,15 @@ if __name__ == '__main__':
     # Use weighted average for imbalanced data
     f1 = f1_score(y_test, y_pred, average='weighted')
     print(f"F1 Score: {f1:.4f}")
+
+    # Generate classification report
+    report = classification_report(y_test, y_pred, output_dict=True)
+
+    # Convert to DataFrame
+    df_report = pd.DataFrame(report).transpose()
+
+    # Exclude 'accuracy' row and sort by recall
+    worst_classes = df_report[:-3].sort_values(by="recall").head(10)
+
+    print("10 Worst Performing Classes (by recall):")
+    print(worst_classes)
