@@ -198,38 +198,52 @@ def get_interpolated_df(z_embeddings, df, vae_model, n_interpolations, n_pairs):
     return interpolated_df
 
 
-def sample_around_hyperplane(z, w, b, mean=0.0, std=1.0, n_samples=10):
+def generate_hyperplane_samples(source_z, source_df, w, b, mean=0.0, std=1.0, n_samples=10):
     """
-    Projects z onto the hyperplane and generates Gaussian-distributed samples along the normal direction.
+    Generates synthetic latent space samples by projecting embeddings onto a hyperplane 
+    and perturbing them along the normal direction.
 
     Args:
-        z (tf.Tensor): Latent space embedding (batch_size, latent_dim)
-        w (tf.Tensor): Normal vector of the hyperplane (latent_dim,)
-        b (tf.Tensor): Bias term of the hyperplane (scalar)
-        std (float): Standard deviation for sampling.
-        n_samples (int): Number of samples per input.
+        source_z (np.ndarray): Latent space embeddings of shape (batch_size, latent_dim)
+        source_df (pd.DataFrame): DataFrame containing the original traces with 'Website' and 'Location' columns.
+        w (np.ndarray): Normal vector of the hyperplane (latent_dim,)
+        b (float): Bias term for the hyperplane.
+        mean (float): Mean for Gaussian noise.
+        std (float): Standard deviation for Gaussian noise.
+        n_samples (int): Number of samples to generate per embedding.
 
     Returns:
-        tf.Tensor: Gaussian-sampled latent embeddings (batch_size, n_samples, latent_dim)
+        np.ndarray: Generated latent embeddings of shape (batch_size * n_samples, latent_dim)
+        np.ndarray: Corresponding Website values for each generated sample.
+        np.ndarray: Corresponding Location values for each generated sample.
     """
-    # Ensure w is normalized
-    w = w / tf.norm(w)
+    batch_size, latent_dim = source_z.shape
 
-    # Compute projection of z onto the hyperplane
-    distance_to_boundary = (tf.reduce_sum(
-        z * w, axis=-1) + b) / tf.reduce_sum(w * w)
-    z_perpendicular = z - \
-        tf.expand_dims(distance_to_boundary, -1) * w  # Projected point
+    # Generate Gaussian noise (alpha_samples) for all embeddings at once
+    # shape: (batch_size, n_samples, latent_dim)
+    alpha_samples = np.random.normal(
+        mean, std, (batch_size, n_samples, latent_dim))
 
-    # Sample Gaussian values for perturbation along the normal direction
-    alpha_samples = tf.random.normal(
-        (tf.shape(z)[0], n_samples, 1), mean=mean, stddev=std)
+    # Project all embeddings onto the hyperplane
+    # shape: (batch_size, latent_dim)
+    z_perpendicular = source_z - \
+        (np.sum(source_z * w, axis=-1, keepdims=True) + b) * w
 
-    # Compute sampled latent embeddings
-    # (batch_size, n_samples, latent_dim)
-    z_samples = z_perpendicular[:, tf.newaxis, :] + alpha_samples * w
+    # Generate n_samples for each embedding by adding perturbation along the normal vector
+    # shape: (batch_size, n_samples, latent_dim)
+    z_samples = z_perpendicular[:, None, :] + alpha_samples * w
 
-    return z_samples[0]
+    # Reshape the samples
+    # shape: (batch_size * n_samples, latent_dim)
+    z_samples_reshaped = z_samples.reshape(-1, latent_dim)
+
+    # Create corresponding Website and Location labels
+    # shape: (batch_size * n_samples,)
+    websites = np.tile(source_df['Website'].values, n_samples)
+    # shape: (batch_size * n_samples,)
+    locations = np.tile(source_df['Location'].values, n_samples)
+
+    return z_samples_reshaped, websites, locations
 
 
 def traverse(z, factor, w):
@@ -281,27 +295,17 @@ def generate_synthetic_data(source_df, w, b, vae_model):
     #     synthetic_dfs.append(df_interp)
 
     n_samples = 10
-    print(
-        f"Generating samples around hyperplane for each trace (n_samples={n_samples})...")
+    print(f"Generating samples around hyperplane (n_samples={n_samples})...")
 
-    # Loop through each trace and generate samples around the hyperplane
-    for i in range(len(source_z)):
-        z_single = source_z[i]  # Get the individual embedding
+    # Generate the synthetic latent samples and their corresponding Website and Location labels
+    z_samples_reshaped, websites, locations = generate_hyperplane_samples(
+        source_z, source_df, w, b, mean=-4.0, std=2.0, n_samples=n_samples)
 
-        # Get corresponding Website and Location
-        website = source_df['Website'].iloc[i]
-        location = source_df['Location'].iloc[i]
+    # Decode the sampled latent embeddings
+    df_samples = decode_and_create_df(z_samples_reshaped, websites, locations)
 
-        # Generate samples around the hyperplane for this specific embedding
-        z_samples = sample_around_hyperplane(
-            z_single, w, b, mean=-4.0, std=2.0, n_samples=n_samples)
-
-        # Decode these samples
-        df_samples = decode_and_create_df(z_samples, np.full(
-            n_samples, website), np.full(n_samples, location))
-
-        # Append to the list of DataFrames
-        synthetic_dfs.append(df_samples)
+    # Append to the list of DataFrames
+    synthetic_dfs.append(df_samples)
 
     # Concatenate all the synthetic DataFrames at once
     synthetic_df = pd.concat(synthetic_dfs, ignore_index=True)
