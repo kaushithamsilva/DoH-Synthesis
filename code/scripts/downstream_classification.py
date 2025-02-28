@@ -200,7 +200,7 @@ def generate_synthetic_data(source_df, w, vae_model):
     interpolated_z = interpolated_df.iloc[:, 2:].to_numpy()
 
     # Define the traversal factors
-    traversal_factors = np.linspace(-30.0, -10.0, 20)
+    traversal_factors = np.linspace(-30.0, -10.0, 2)
 
     # Helper function: traverse, decode, and build a DataFrame including Website and Location.
     def decode_and_create_df(z_values, websites, locations):
@@ -281,8 +281,15 @@ if __name__ == '__main__':
     X_test = target_df.iloc[:, 2:]
     y_test = le.transform(target_df.Website)
 
-    model = build_classifier(
-        input_dim=length, hidden_dim=96, num_classes=len(test_web_samples))
+    # LSTM model
+    model = keras.Sequential([
+        keras.layers.InputLayer(input_shape=(length, 1)),
+        keras.layers.LSTM(96),
+        keras.layers.Dense(len(test_web_samples))
+    ])
+
+    # model = build_classifier(
+    #    input_dim=length, hidden_dim=96, num_classes=len(test_web_samples))
     model.compile(
         optimizer='adam',
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
