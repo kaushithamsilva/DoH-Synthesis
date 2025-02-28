@@ -51,6 +51,21 @@ def build_classifier(input_dim, hidden_dim, num_classes):
     return classifier
 
 
+def build_gru_classifier(input_dim, hidden_dim, num_classes):
+    model = keras.Sequential([
+        keras.layers.InputLayer(input_shape=(input_dim, 1)),
+        keras.layers.GRU(hidden_dim, return_sequences=True),
+        keras.layers.BatchNormalization(),
+        keras.layers.GRU(hidden_dim * 2),
+        keras.layers.BatchNormalization(),
+        keras.layers.Dense(hidden_dim * 2, activation="relu"),
+        keras.layers.BatchNormalization(),
+        keras.layers.Dropout(0.5),
+        keras.layers.Dense(num_classes)  # No softmax for logits
+    ])
+    return model
+
+
 def get_z_embeddings(data, vae_model):
     embeddings = []
     chunk_size = 1000
@@ -281,12 +296,9 @@ if __name__ == '__main__':
     X_test = target_df.iloc[:, 2:]
     y_test = le.transform(target_df.Website)
 
-    # GRY model
-    model = keras.Sequential([
-        keras.layers.InputLayer(input_shape=(length, 1)),
-        keras.layers.GRU(96),
-        keras.layers.Dense(len(test_web_samples))
-    ])
+    # GRU model
+    model = build_gru_classifier(
+        input_dim=length, hidden_dim=96, num_classes=len(test_web_samples))
 
     # model = build_classifier(
     #    input_dim=length, hidden_dim=96, num_classes=len(test_web_samples))
