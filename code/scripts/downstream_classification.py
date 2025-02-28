@@ -213,9 +213,11 @@ def generate_synthetic_data(source_df, w, vae_model):
     interpolated_df = get_interpolated_df(
         source_z, source_df, vae_model, n_interpolations=1, n_pairs=20)
     interpolated_z = interpolated_df.iloc[:, 2:].to_numpy()
+    print(f"Interpolated data shape: {interpolated_z.shape}")
 
     # Define the traversal factors
-    traversal_factors = np.linspace(-30.0, -10.0, 2)
+    # traversal_factors = np.linspace(-30.0, -10.0, 2)
+    traversal_factors = [-20.0]
 
     # Helper function: traverse, decode, and build a DataFrame including Website and Location.
     def decode_and_create_df(z_values, websites, locations):
