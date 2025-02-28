@@ -386,14 +386,22 @@ if __name__ == '__main__':
     f1 = f1_score(y_test, y_pred, average='weighted')
     print(f"F1 Score: {f1:.4f}")
 
-    # Generate classification report
+    # Get the classification report
     report = classification_report(y_test, y_pred, output_dict=True)
 
     # Convert to DataFrame
     df_report = pd.DataFrame(report).transpose()
 
-    # Exclude 'accuracy' row and sort by recall
-    worst_classes = df_report[:-3].sort_values(by="recall").head(10)
+    # Remove non-class rows (accuracy, macro avg, weighted avg)
+    df_report = df_report[:-3]
 
+    # Get original class names
+    df_report["class_name"] = le.inverse_transform(df_report.index.astype(int))
+
+    # Sort by recall to find worst-performing classes
+    worst_classes = df_report.sort_values(by="recall").head(20)
+
+    # Display results
     print("10 Worst Performing Classes (by recall):")
-    print(worst_classes)
+    print(worst_classes[["class_name", "precision",
+          "recall", "f1-score", "support"]])
