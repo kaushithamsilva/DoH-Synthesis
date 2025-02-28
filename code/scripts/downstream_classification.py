@@ -178,6 +178,7 @@ def get_interpolated_df(z_embeddings, df, vae_model, n_interpolations, n_pairs):
     # Note: We use np.column_stack to combine object-type data with numerical arrays.
     data = np.column_stack((all_websites, all_locations, all_embeddings))
     interpolated_df = pd.DataFrame(data, columns=columns)
+    interpolated_df['Website'] = interpolated_df['Website'].astype(int)
 
     return interpolated_df
 
