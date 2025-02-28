@@ -281,10 +281,10 @@ if __name__ == '__main__':
     X_test = target_df.iloc[:, 2:]
     y_test = le.transform(target_df.Website)
 
-    # LSTM model
+    # GRY model
     model = keras.Sequential([
         keras.layers.InputLayer(input_shape=(length, 1)),
-        keras.layers.LSTM(96),
+        keras.layers.GRU(96),
         keras.layers.Dense(len(test_web_samples))
     ])
 
