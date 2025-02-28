@@ -198,26 +198,50 @@ def get_interpolated_df(z_embeddings, df, vae_model, n_interpolations, n_pairs):
     return interpolated_df
 
 
+def sample_around_hyperplane(z, w, b, mean=0.0, std=1.0, n_samples=10):
+    """
+    Projects z onto the hyperplane and generates Gaussian-distributed samples along the normal direction.
+
+    Args:
+        z (tf.Tensor): Latent space embedding (batch_size, latent_dim)
+        w (tf.Tensor): Normal vector of the hyperplane (latent_dim,)
+        b (tf.Tensor): Bias term of the hyperplane (scalar)
+        std (float): Standard deviation for sampling.
+        n_samples (int): Number of samples per input.
+
+    Returns:
+        tf.Tensor: Gaussian-sampled latent embeddings (batch_size, n_samples, latent_dim)
+    """
+    # Ensure w is normalized
+    w = w / tf.norm(w)
+
+    # Compute projection of z onto the hyperplane
+    distance_to_boundary = (tf.reduce_sum(
+        z * w, axis=-1) + b) / tf.reduce_sum(w * w)
+    z_perpendicular = z - \
+        tf.expand_dims(distance_to_boundary, -1) * w  # Projected point
+
+    # Sample Gaussian values for perturbation along the normal direction
+    alpha_samples = tf.random.normal(
+        (tf.shape(z)[0], n_samples, 1), mean=mean, stddev=std)
+
+    # Compute sampled latent embeddings
+    # (batch_size, n_samples, latent_dim)
+    z_samples = z_perpendicular[:, tf.newaxis, :] + alpha_samples * w
+
+    return z_samples[0]
+
+
 def traverse(z, factor, w):
     return z + factor * w
 
 
-def generate_synthetic_data(source_df, w, vae_model):
+def generate_synthetic_data(source_df, w, b, vae_model):
     synthetic_dfs = []
 
     print("Getting z embeddings...")
     source_traces = source_df.iloc[:, 2:].to_numpy()
     source_z = get_z_embeddings(source_traces, vae_model)
-
-    # Generate interpolated data; note that interpolated_df already has 'Website' and 'Location' as its first two columns.
-    interpolated_df = get_interpolated_df(
-        source_z, source_df, vae_model, n_interpolations=1, n_pairs=20)
-    interpolated_z = interpolated_df.iloc[:, 2:].to_numpy()
-    print(f"Interpolated data shape: {interpolated_z.shape}")
-
-    # Define the traversal factors
-    # traversal_factors = np.linspace(-30.0, -10.0, 2)
-    traversal_factors = [-20.0]
 
     # Helper function: traverse, decode, and build a DataFrame including Website and Location.
     def decode_and_create_df(z_values, websites, locations):
@@ -229,23 +253,55 @@ def generate_synthetic_data(source_df, w, vae_model):
         df_decoded.insert(0, 'Website', websites)
         return df_decoded
 
-    # Loop over each traversal factor
-    for factor in traversal_factors:
-        print(f"Traversing z embeddings with factor {factor}...")
+    # # Generate interpolated data; note that interpolated_df already has 'Website' and 'Location' as its first two columns.
+    # interpolated_df = get_interpolated_df(
+    #     source_z, source_df, vae_model, n_interpolations=1, n_pairs=20)
+    # interpolated_z = interpolated_df.iloc[:, 2:].to_numpy()
+    # print(f"Interpolated data shape: {interpolated_z.shape}")
 
-        # Process the original (non-interpolated) data
-        z_traversed_orig = traverse(source_z, factor, w)
-        df_orig = decode_and_create_df(z_traversed_orig,
-                                       source_df['Website'].values,
-                                       source_df['Location'].values)
-        synthetic_dfs.append(df_orig)
+    # # Define the traversal factors
+    # traversal_factors = np.linspace(-12, -8.0, 4)
 
-        # Process the interpolated data
-        z_traversed_interp = traverse(interpolated_z, factor, w)
-        df_interp = decode_and_create_df(z_traversed_interp,
-                                         interpolated_df['Website'].values,
-                                         interpolated_df['Location'].values)
-        synthetic_dfs.append(df_interp)
+    # # Loop over each traversal factor
+    # for factor in traversal_factors:
+    #     print(f"Traversing z embeddings with factor {factor}...")
+
+    #     # Process the original (non-interpolated) data
+    #     z_traversed_orig = traverse(source_z, factor, w)
+    #     df_orig = decode_and_create_df(z_traversed_orig,
+    #                                    source_df['Website'].values,
+    #                                    source_df['Location'].values)
+    #     synthetic_dfs.append(df_orig)
+
+    #     # Process the interpolated data
+    #     z_traversed_interp = traverse(interpolated_z, factor, w)
+    #     df_interp = decode_and_create_df(z_traversed_interp,
+    #                                      interpolated_df['Website'].values,
+    #                                      interpolated_df['Location'].values)
+    #     synthetic_dfs.append(df_interp)
+
+    n_samples = 10
+    print(
+        f"Generating samples around hyperplane for each trace (n_samples={n_samples})...")
+
+    # Loop through each trace and generate samples around the hyperplane
+    for i in range(len(source_z)):
+        z_single = source_z[i]  # Get the individual embedding
+
+        # Get corresponding Website and Location
+        website = source_df['Website'].iloc[i]
+        location = source_df['Location'].iloc[i]
+
+        # Generate samples around the hyperplane for this specific embedding
+        z_samples = sample_around_hyperplane(
+            z_single, w, b, mean=-4.0, std=2.0, n_samples=n_samples)
+
+        # Decode these samples
+        df_samples = decode_and_create_df(z_samples, np.full(
+            n_samples, website), np.full(n_samples, location))
+
+        # Append to the list of DataFrames
+        synthetic_dfs.append(df_samples)
 
     # Concatenate all the synthetic DataFrames at once
     synthetic_df = pd.concat(synthetic_dfs, ignore_index=True)
@@ -289,7 +345,7 @@ if __name__ == '__main__':
 
     # get the hyperplane
     w, b = get_hyperplane(domain_discriminator)
-    synthetic_df = generate_synthetic_data(source_df, w, vae_model)
+    synthetic_df = generate_synthetic_data(source_df, w, b, vae_model)
 
     # Prepare the training and test datasets
     le = LabelEncoder()
