@@ -398,10 +398,6 @@ if __name__ == '__main__':
     # Get original class names
     df_report["class_name"] = le.inverse_transform(df_report.index.astype(int))
 
-    # Sort by recall to find worst-performing classes
-    worst_classes = df_report.sort_values(by="recall").head(20)
-
-    # Display results
-    print("10 Worst Performing Classes (by recall):")
-    print(worst_classes[["class_name", "precision",
-          "recall", "f1-score", "support"]])
+    # classes with 0.0 recall
+    worst_classes = df_report[df_report["recall"] == 0.0]["class_name"]
+    print(f"classes with 0.0 recall: {worst_classes}")
