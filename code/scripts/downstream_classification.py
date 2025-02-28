@@ -211,7 +211,7 @@ def generate_synthetic_data(source_df, w, vae_model):
 
     # Generate interpolated data; note that interpolated_df already has 'Website' and 'Location' as its first two columns.
     interpolated_df = get_interpolated_df(
-        source_z, source_df, vae_model, n_interpolations=2, n_pairs=5)
+        source_z, source_df, vae_model, n_interpolations=1, n_pairs=20)
     interpolated_z = interpolated_df.iloc[:, 2:].to_numpy()
 
     # Define the traversal factors
@@ -296,12 +296,8 @@ if __name__ == '__main__':
     X_test = target_df.iloc[:, 2:]
     y_test = le.transform(target_df.Website)
 
-    # GRU model
-    model = build_gru_classifier(
+    model = build_classifier(
         input_dim=length, hidden_dim=96, num_classes=len(test_web_samples))
-
-    # model = build_classifier(
-    #    input_dim=length, hidden_dim=96, num_classes=len(test_web_samples))
     model.compile(
         optimizer='adam',
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
