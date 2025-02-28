@@ -235,7 +235,7 @@ def generate_hyperplane_samples(source_z, source_df, w, b, mean=0.0, std=1.0, n_
 
     # Reshape the samples
     # shape: (batch_size * n_samples, latent_dim)
-    z_samples_reshaped = z_samples.reshape(-1, latent_dim)
+    z_samples_reshaped = z_samples.numpy().reshape(-1, latent_dim)
 
     # Create corresponding Website and Location labels
     # shape: (batch_size * n_samples,)
