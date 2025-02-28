@@ -239,9 +239,8 @@ def generate_hyperplane_samples(source_z, source_df, w, b, mean=0.0, std=1.0, n_
 
     # Create corresponding Website and Location labels
     # shape: (batch_size * n_samples,)
-    websites = np.tile(source_df['Website'].values, n_samples)
-    # shape: (batch_size * n_samples,)
-    locations = np.tile(source_df['Location'].values, n_samples)
+    websites = np.repeat(source_df['Website'].values, n_samples)
+    locations = np.repeat(source_df['Location'].values, n_samples)
 
     return z_samples_reshaped, websites, locations
 
