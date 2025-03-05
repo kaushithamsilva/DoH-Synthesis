@@ -366,7 +366,7 @@ if __name__ == '__main__':
         metrics=['accuracy']
     )
 
-    # model.fit(X_train, y_train, batch_size=256, epochs=10, shuffle=True)
+    model.fit(X_train, y_train, batch_size=256, epochs=20, shuffle=True)
 
     # Get logits from model prediction
     logits = model.predict(X_test)
@@ -386,10 +386,6 @@ if __name__ == '__main__':
 
     # Get the classification report
     report = classification_report(y_test, y_pred, output_dict=True)
-
-    # load report_df
-    report_df = pd.read_csv(
-        f"../../models-{locations[0]}-{locations[1]}/classification/downstream_classification.csv")
 
     # save the report
     report_df = pd.DataFrame(report).transpose()
