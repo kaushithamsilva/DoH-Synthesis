@@ -121,7 +121,7 @@ if __name__ == '__main__':
     from train_vae import ConvVAE_BatchNorm, Sampling
     from hyperplane import get_hyperplane
 
-    locations = ['LOC1', 'LOC2']
+    locations = ['LOC2', 'LOC3']
 
     print("Loading Dataset...")
     # load the dataset
