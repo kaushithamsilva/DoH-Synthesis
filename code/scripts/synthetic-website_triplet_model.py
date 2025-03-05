@@ -157,7 +157,8 @@ if __name__ == '__main__':
 
     # get the hyperplane
     w, b = get_hyperplane(domain_discriminator)
-    synthetic_df = generate_synthetic_data(source_df, w, b, vae_model)
+    synthetic_df = generate_synthetic_data(
+        source_df, w, b, vae_model, n_samples=5, n_interpolations=2, n_pairs=2)
     combined_df = pd.concat([train_df, synthetic_df], ignore_index=True)
 
     # get train-val set from the train set, 50 for validation set

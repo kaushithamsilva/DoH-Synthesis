@@ -252,7 +252,7 @@ def traverse(z, factor, w):
     return z + factor * w
 
 
-def generate_synthetic_data(source_df, w, b, vae_model):
+def generate_synthetic_data(source_df, w, b, vae_model, n_interpolations=2, n_pairs=2, n_samples=100):
     synthetic_dfs = []
 
     print("Getting z embeddings...")
@@ -271,7 +271,7 @@ def generate_synthetic_data(source_df, w, b, vae_model):
 
     # Generate interpolated data; note that interpolated_df already has 'Website' and 'Location' as its first two columns.
     interpolated_df = get_interpolated_df(
-        source_z, source_df, vae_model, n_interpolations=2, n_pairs=2)
+        source_z, source_df, vae_model, n_interpolations=n_interpolations, n_pairs=n_pairs)
     interpolated_z = interpolated_df.iloc[:, 2:].to_numpy()
     print(f"Interpolated data shape: {interpolated_z.shape}")
 
@@ -294,7 +294,6 @@ def generate_synthetic_data(source_df, w, b, vae_model):
 
     #     synthetic_dfs.append(df_traversed)
 
-    n_samples = 100
     print(f"Generating samples around hyperplane (n_samples={n_samples})...")
 
     # Generate the synthetic latent samples and their corresponding Website and Location labels
