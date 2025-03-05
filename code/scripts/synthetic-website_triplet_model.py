@@ -207,7 +207,7 @@ if __name__ == '__main__':
             [train_anchors, train_positives, train_negatives],
             [train_anchors],
             epochs=triplet_epochs,
-            batch_size=128,
+            batch_size=256,
             shuffle=True,
         )
 
