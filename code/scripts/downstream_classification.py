@@ -269,11 +269,16 @@ def generate_synthetic_data(source_df, w, b, vae_model):
         df_decoded.insert(0, 'Website', websites)
         return df_decoded
 
-    # # Generate interpolated data; note that interpolated_df already has 'Website' and 'Location' as its first two columns.
-    # interpolated_df = get_interpolated_df(
-    #     source_z, source_df, vae_model, n_interpolations=1, n_pairs=20)
-    # interpolated_z = interpolated_df.iloc[:, 2:].to_numpy()
-    # print(f"Interpolated data shape: {interpolated_z.shape}")
+    # Generate interpolated data; note that interpolated_df already has 'Website' and 'Location' as its first two columns.
+    interpolated_df = get_interpolated_df(
+        source_z, source_df, vae_model, n_interpolations=2, n_pairs=2)
+    interpolated_z = interpolated_df.iloc[:, 2:].to_numpy()
+    print(f"Interpolated data shape: {interpolated_z.shape}")
+
+    # combine the original and interpolated data
+    source_with_interpolated_df = pd.concat(
+        [source_df, interpolated_df], ignore_index=True)
+    z = np.concatenate([source_z, interpolated_z], axis=0)
 
     # # Define the traversal factors
     # traversal_factors = np.linspace(-12, -8.0, 4)
@@ -282,29 +287,22 @@ def generate_synthetic_data(source_df, w, b, vae_model):
     # for factor in traversal_factors:
     #     print(f"Traversing z embeddings with factor {factor}...")
 
-    #     # Process the original (non-interpolated) data
-    #     z_traversed_orig = traverse(source_z, factor, w)
-    #     df_orig = decode_and_create_df(z_traversed_orig,
-    #                                    source_df['Website'].values,
-    #                                    source_df['Location'].values)
-    #     synthetic_dfs.append(df_orig)
+    #     # Process the source_with_interpolated DataFrame
+    #     z_traversed = traverse(z, factor, w)
+    #     df_traversed = decode_and_create_df(z_traversed, source_with_interpolated_df['Website'].values,
+    #                                         source_with_interpolated_df['Location'].values)
 
-    #     # Process the interpolated data
-    #     z_traversed_interp = traverse(interpolated_z, factor, w)
-    #     df_interp = decode_and_create_df(z_traversed_interp,
-    #                                      interpolated_df['Website'].values,
-    #                                      interpolated_df['Location'].values)
-    #     synthetic_dfs.append(df_interp)
+    #     synthetic_dfs.append(df_traversed)
 
     n_samples = 100
     print(f"Generating samples around hyperplane (n_samples={n_samples})...")
 
     # Generate the synthetic latent samples and their corresponding Website and Location labels
-    z_samples_reshaped, websites, locations = generate_hyperplane_samples(
-        source_z, source_df, w, b, mean=-4.0, std=2.0, n_samples=n_samples)
+    z_samples, websites, locations = generate_hyperplane_samples(
+        z, source_with_interpolated_df, w, b, mean=-4.0, std=2.0, n_samples=n_samples)
 
     # Decode the sampled latent embeddings
-    df_samples = decode_and_create_df(z_samples_reshaped, websites, locations)
+    df_samples = decode_and_create_df(z_samples, websites, locations)
 
     # Append to the list of DataFrames
     synthetic_dfs.append(df_samples)
