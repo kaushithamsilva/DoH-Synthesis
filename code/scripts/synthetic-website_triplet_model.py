@@ -35,6 +35,7 @@ def get_triplets_website_encoder_optimized(df, num_triplet_samples):
 
     idx = 0
     for i in range(len(df)):
+        print(f"Processing {i} out of {len(df)}")
         anchor_location = location_indices[i]
         anchor_website = website_indices[i]
 
@@ -158,7 +159,7 @@ if __name__ == '__main__':
     # get the hyperplane
     w, b = get_hyperplane(domain_discriminator)
     synthetic_df = generate_synthetic_data(
-        source_df, w, b, vae_model, n_samples=5, n_interpolations=2, n_pairs=2)
+        source_df, w, b, vae_model, n_samples=3, n_interpolations=2, n_pairs=1)
     combined_df = pd.concat([train_df, synthetic_df], ignore_index=True)
 
     # get train-val set from the train set, 50 for validation set
