@@ -368,7 +368,7 @@ if __name__ == '__main__':
         metrics=['accuracy']
     )
 
-    model.fit(X_train, y_train, batch_size=256, epochs=5, shuffle=True)
+    model.fit(X_train, y_train, batch_size=256, epochs=10, shuffle=True)
 
     # Get logits from model prediction
     logits = model.predict(X_test)
@@ -389,15 +389,7 @@ if __name__ == '__main__':
     # Get the classification report
     report = classification_report(y_test, y_pred, output_dict=True)
 
-    # Convert to DataFrame
-    df_report = pd.DataFrame(report).transpose()
-
-    # Remove non-class rows (accuracy, macro avg, weighted avg)
-    df_report = df_report[:-3]
-
-    # Get original class names
-    df_report["class_name"] = le.inverse_transform(df_report.index.astype(int))
-
-    # classes with 0.0 recall
-    worst_classes = df_report[df_report["recall"] == 0.0]["class_name"]
-    print(f"classes with 0.0 recall: {worst_classes}")
+    # save the report
+    report_df = pd.DataFrame(report).transpose()
+    report_df.to_csv(
+        f"../../models-{locations[0]}-{locations[1]}/classification/downstream_classification.csv")
