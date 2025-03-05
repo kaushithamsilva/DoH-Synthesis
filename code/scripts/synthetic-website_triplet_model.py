@@ -4,9 +4,10 @@ import init_dataset
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+import model_utils
 
 
-def get_triplets_website_encoder_optimized(df, num_triplet_samples):
+def get_triplets_website_encoder(df, num_triplet_samples):
     # Pre-compute unique locations and websites
     unique_locations = df['Location'].unique()
     unique_websites = df['Website'].unique()
@@ -35,7 +36,7 @@ def get_triplets_website_encoder_optimized(df, num_triplet_samples):
 
     idx = 0
     for i in range(len(df)):
-        print(f"Processing {i} out of {len(df)}")
+        # print(f"Processing {i} out of {len(df)}")
         anchor_location = location_indices[i]
         anchor_website = website_indices[i]
 
@@ -61,59 +62,6 @@ def get_triplets_website_encoder_optimized(df, num_triplet_samples):
         idx += num_triplet_samples
 
     return anchor_website_labels.reshape(-1, 1), anchors, positives, negatives
-
-
-def get_triplets_website_encoder(df, num_triplet_samples):
-
-    # Create arrays for unique platform and class labels
-    location_labels = df['Location'].values
-    website_labels = df['Website'].values
-
-    # Initialize lists to store results
-    anchors = []  # one anchor per one entry
-
-    # different location same website
-    positives = []
-    # different location different website
-    negatives = []
-
-    anchor_website_labels = []
-
-    for i in range(len(df)):
-        anchor_location = location_labels[i]
-        anchor_website_label = website_labels[i]
-        # print(anchor_location, anchor_website_label, i, len(df))
-
-        # Select negative samples
-        negative_mask = (location_labels != anchor_location) & (
-            website_labels != anchor_website_label)
-        negative_samples = df[negative_mask].sample(
-            num_triplet_samples).iloc[:, 2:].to_numpy()
-
-        # Select positive samples
-        positive_mask = website_labels == anchor_website_label  # 6 * 20
-        # positive_mask = (location_labels != anchor_location) & (website_labels == anchor_website_label) # 5 * 20
-        positive_samples = df[positive_mask].sample(
-            num_triplet_samples, replace=True).iloc[:, 2:].to_numpy()
-
-        # Add anchor data
-        anchor_data = df.iloc[i:i+1,
-                              2:].to_numpy().repeat(len(positive_samples), axis=0)
-
-        # Append the results to lists
-        anchors.append(anchor_data)
-        positives.append(positive_samples)
-        negatives.append(negative_samples)
-        anchor_website_labels.append(
-            anchor_website_label.repeat(len(positive_samples), axis=0))
-
-    # Convert lists to numpy arrays
-    anchors = np.vstack(anchors)
-    positives = np.vstack(positives)
-    negatives = np.vstack(negatives)
-    anchor_website_labels = np.vstack(anchor_website_labels).reshape(-1, 1)
-
-    return anchor_website_labels, anchors, positives, negatives
 
 
 if __name__ == '__main__':
@@ -159,7 +107,7 @@ if __name__ == '__main__':
     # get the hyperplane
     w, b = get_hyperplane(domain_discriminator)
     synthetic_df = generate_synthetic_data(
-        source_df, w, b, vae_model, n_samples=1, n_interpolations=2, n_pairs=1)
+        source_df, w, b, vae_model, n_samples=2, n_interpolations=2, n_pairs=2)
     combined_df = pd.concat([train_df, synthetic_df], ignore_index=True)
 
     # get train-val set from the train set, 50 for validation set
@@ -167,7 +115,7 @@ if __name__ == '__main__':
 
     num_triplet_samples = 5
     print("Generating Triplets...")
-    train_anchor_labels, train_anchors, train_positives, train_negatives = get_triplets_website_encoder_optimized(
+    train_anchor_labels, train_anchors, train_positives, train_negatives = get_triplets_website_encoder(
         combined_df, num_triplet_samples)
 
     print("Anchor Shape: ", train_anchors.shape)
@@ -185,7 +133,7 @@ if __name__ == '__main__':
 
     # Training Triplet Model
     baseNetwork = 'baseCNN'
-    triplet_epochs = 20
+    triplet_epochs = 10
 
     strategy = tf.distribute.MirroredStrategy()
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
@@ -209,13 +157,12 @@ if __name__ == '__main__':
             [train_anchors, train_positives, train_negatives],
             [train_anchors],
             epochs=triplet_epochs,
-            batch_size=256,
+            batch_size=128,
             shuffle=True,
         )
 
     print("Saving model...")
 
-    base_instance.save(
-        f'../../models/website/synthetic-{locations[0]}-{locations[1]}-{baseNetwork}-epochs{triplet_epochs}-train_samples{num_train_samples}-triplet_samples{num_triplet_samples}).keras')
-
+    model_utils.save_model(
+        base_instance, f'../../models/website/synthetic-{locations[0]}-{locations[1]}-{baseNetwork}-epochs{triplet_epochs}-train_samples{num_train_samples}-triplet_samples{num_triplet_samples}.keras')
     print("Website Triplet Model Training Completed!")
