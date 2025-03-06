@@ -56,10 +56,10 @@ if __name__ == '__main__':
 
     # get the hyperplane
     w, b = get_hyperplane(domain_discriminator)
-    # synthetic_df = generate_synthetic_data(
-    #     source_df, w, b, vae_model, n_samples=100, n_interpolations=2, n_pairs=2)
+    synthetic_df = generate_synthetic_data(
+        source_df, w, b, vae_model, n_samples=1, n_interpolations=2, n_pairs=2)
 
-    # synthetic_df['Location'] = target_location
+    synthetic_df['Location'] = target_location
 
     # Create a dictionary of custom objects
     custom_objects = {
@@ -92,12 +92,17 @@ if __name__ == '__main__':
     X_train = target_df.iloc[:, 2:]
     y_train = le.transform(target_df['Website'])
 
-    # print("\tWithout Embedding:")
-    # model = KNeighborsClassifier(n_neighbors=10)
-    # classification.evaluate_classification_model(
-    #     X_train, y_train, X_test, y_test, model)
-
     print("\tWith Embedding:")
     model = KNeighborsClassifier(n_neighbors=10)
     classification.evaluate_classification_model(
         web_model(X_train), y_train, web_model(X_test), y_test, model)
+
+    print("KNN Classifier trained on synthetic data")
+
+    X_train = synthetic_df.iloc[:, 2:]
+    y_train = le.transform(synthetic_df['Website'])
+
+    print("\tWith Embedding:")
+    model = KNeighborsClassifier(n_neighbors=10)
+    classification.evaluate_classification_model(
+        get_embeddings_by_chunks(X_train, web_model), y_train, web_model(X_test), y_test, model)
