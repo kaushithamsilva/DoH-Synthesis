@@ -308,6 +308,9 @@ def generate_synthetic_data(source_df, w, b, vae_model, n_interpolations=2, n_pa
 
     # Concatenate all the synthetic DataFrames at once
     synthetic_df = pd.concat(synthetic_dfs, ignore_index=True)
+
+    # TODO: Change location to the target location
+    # synthetic_df['Location'] = target_location
     return synthetic_df
 
 

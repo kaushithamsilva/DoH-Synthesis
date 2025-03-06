@@ -41,14 +41,14 @@ def get_triplets_website_encoder(df, num_triplet_samples):
         anchor_website = website_indices[i]
 
         # Select negative samples
-        negative_mask = (location_indices != anchor_location) & (
-            website_indices != anchor_website)
+        negative_mask = (website_indices != anchor_website)
         negative_indices = np.where(negative_mask)[0]
         neg_samples = np.random.choice(
             negative_indices, num_triplet_samples, replace=True)
 
         # Select positive samples
-        positive_mask = website_masks[unique_websites[anchor_website]]
+        positive_mask = (website_indices == anchor_website) & (
+            location_indices != anchor_location)
         positive_indices = np.where(positive_mask)[0]
         pos_samples = np.random.choice(
             positive_indices, num_triplet_samples, replace=True)
@@ -108,6 +108,7 @@ if __name__ == '__main__':
     w, b = get_hyperplane(domain_discriminator)
     synthetic_df = generate_synthetic_data(
         source_df, w, b, vae_model, n_samples=1, n_interpolations=2, n_pairs=1)
+    synthetic_df['Location'] = target_location
     combined_df = pd.concat([train_df, synthetic_df], ignore_index=True)
 
     # get train-val set from the train set, 50 for validation set
@@ -164,5 +165,5 @@ if __name__ == '__main__':
     print("Saving model...")
 
     model_utils.save_model(
-        base_instance, f'../../models-{locations[0]}-{locations[1]}/website',f'synthetic-{locations[0]}-{locations[1]}-{baseNetwork}-epochs{triplet_epochs}-train_samples{num_train_samples}-triplet_samples{num_triplet_samples}')
+        base_instance, f'../../models-{locations[0]}-{locations[1]}/website', f'synthetic-{locations[0]}-{locations[1]}-{baseNetwork}-epochs{triplet_epochs}-train_samples{num_train_samples}-triplet_samples{num_triplet_samples}')
     print("Website Triplet Model Training Completed!")
