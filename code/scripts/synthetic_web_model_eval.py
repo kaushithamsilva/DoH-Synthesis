@@ -6,6 +6,14 @@ import numpy as np
 import tensorflow as tf
 import model_utils
 
+
+def get_embeddings_by_chunks(X, model, chunk_size=10000):
+    embeddings = []
+    for i in range(0, len(X), chunk_size):
+        embeddings.append(model(X[i:i+chunk_size]))
+    return np.concatenate(embeddings, axis=0)
+
+
 if __name__ == '__main__':
     init_gpu.initialize_gpus()
     from sklearn.neighbors import KNeighborsClassifier
@@ -66,7 +74,7 @@ if __name__ == '__main__':
     print("Evaluating the model...")
     print("KNN Classifier trained on actual source data")
     print("\tWithout Embedding:")
-    model = KNeighborsClassifier(n_neighbors=1)
+    model = KNeighborsClassifier(n_neighbors=10)
     classification.evaluate_classification_model(
         X_train, y_train, X_test, y_test, model)
 
@@ -80,12 +88,12 @@ if __name__ == '__main__':
     X_train = synthetic_df.iloc[:, 2:]
     y_train = le.transform(synthetic_df['Website'])
 
-    print("\tWithout Embedding:")
-    model = KNeighborsClassifier(n_neighbors=1)
-    classification.evaluate_classification_model(
-        X_train, y_train, X_test, y_test, model)
+    # print("\tWithout Embedding:")
+    # model = KNeighborsClassifier(n_neighbors=10)
+    # classification.evaluate_classification_model(
+    #     X_train, y_train, X_test, y_test, model)
 
-    print("\With Embedding:")
+    print("\tWith Embedding:")
     model = KNeighborsClassifier(n_neighbors=10)
     classification.evaluate_classification_model(
-        web_model(X_train), y_train, web_model(X_test), y_test, model)
+        get_embeddings_by_chunks(X_train, web_model), y_train, web_model(X_test), y_test, model)
