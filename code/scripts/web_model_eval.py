@@ -36,7 +36,7 @@ if __name__ == '__main__':
 
     # Load the model with custom objects
     web_model = tf.keras.models.load_model(
-        "../models-LOC2-LOC3/website/synthetic-LOC2-LOC3-baseCNN-epochs3-train_samples1200-triplet_samples5.keras",
+        "../../models-LOC2-LOC3/website/synthetic-LOC2-LOC3-baseCNN-epochs3-train_samples1200-triplet_samples5.keras",
         custom_objects=custom_objects
     )
 
