@@ -45,7 +45,7 @@ if __name__ == '__main__':
     # get the hyperplane
     w, b = get_hyperplane(domain_discriminator)
     synthetic_df = generate_synthetic_data(
-        source_df, w, b, vae_model, n_samples=1, n_interpolations=2, n_pairs=1)
+        source_df, w, b, vae_model, n_samples=100, n_interpolations=2, n_pairs=2)
 
     synthetic_df['Location'] = target_location
 
