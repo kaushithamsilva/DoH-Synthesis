@@ -43,6 +43,10 @@ if __name__ == '__main__':
     source_df.sort_values(by=['Website'], inplace=True)
     source_df.reset_index(drop=True, inplace=True)
 
+    target_df = test_df[test_df['Location'] == target_location]
+    target_df.sort_values(by=['Website'], inplace=True)
+    target_df.reset_index(drop=True, inplace=True)
+
     # load models
     latent_dim = 96
     vae_model = tf.keras.models.load_model(f"../../models-{locations[0]}-{locations[1]}/vae/ci_vae/ConvBased/domain_and_class/vae-e1000-mse1-kl0.0001-cl1.0-ldim96-hdim128.keras", custom_objects={
@@ -52,10 +56,10 @@ if __name__ == '__main__':
 
     # get the hyperplane
     w, b = get_hyperplane(domain_discriminator)
-    synthetic_df = generate_synthetic_data(
-        source_df, w, b, vae_model, n_samples=100, n_interpolations=2, n_pairs=2)
+    # synthetic_df = generate_synthetic_data(
+    #     source_df, w, b, vae_model, n_samples=100, n_interpolations=2, n_pairs=2)
 
-    synthetic_df['Location'] = target_location
+    # synthetic_df['Location'] = target_location
 
     # Create a dictionary of custom objects
     custom_objects = {
@@ -83,10 +87,10 @@ if __name__ == '__main__':
     classification.evaluate_classification_model(
         web_model(X_train), y_train, web_model(X_test), y_test, model)
 
-    print("KNN Classifier trained on target synthetic data")
+    print("KNN Classifier trained on target actual data (Best Case)")
 
-    X_train = synthetic_df.iloc[:, 2:]
-    y_train = le.transform(synthetic_df['Website'])
+    X_train = target_df.iloc[:, 2:]
+    y_train = le.transform(target_df['Website'])
 
     # print("\tWithout Embedding:")
     # model = KNeighborsClassifier(n_neighbors=10)
@@ -96,4 +100,4 @@ if __name__ == '__main__':
     print("\tWith Embedding:")
     model = KNeighborsClassifier(n_neighbors=10)
     classification.evaluate_classification_model(
-        get_embeddings_by_chunks(X_train, web_model), y_train, web_model(X_test), y_test, model)
+        web_model(X_train), y_train, web_model(X_test), y_test, model)
