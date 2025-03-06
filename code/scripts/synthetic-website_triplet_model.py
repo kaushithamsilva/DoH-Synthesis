@@ -108,8 +108,12 @@ if __name__ == '__main__':
     w, b = get_hyperplane(domain_discriminator)
     synthetic_df = generate_synthetic_data(
         source_df, w, b, vae_model, n_samples=1, n_interpolations=2, n_pairs=1)
+
+    source_df['Location'] = source_location
     synthetic_df['Location'] = target_location
-    combined_df = pd.concat([train_df, synthetic_df], ignore_index=True)
+
+    combined_df = pd.concat(
+        [train_df, synthetic_df, source_df], ignore_index=True)
 
     # get train-val set from the train set, 50 for validation set
     # training information
@@ -134,7 +138,7 @@ if __name__ == '__main__':
 
     # Training Triplet Model
     baseNetwork = 'baseCNN'
-    triplet_epochs = 3
+    triplet_epochs = 5
 
     strategy = tf.distribute.MirroredStrategy()
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
