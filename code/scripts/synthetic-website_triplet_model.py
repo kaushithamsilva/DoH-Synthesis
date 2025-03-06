@@ -107,7 +107,7 @@ if __name__ == '__main__':
     # get the hyperplane
     w, b = get_hyperplane(domain_discriminator)
     synthetic_df = generate_synthetic_data(
-        source_df, w, b, vae_model, n_samples=2, n_interpolations=2, n_pairs=2)
+        source_df, w, b, vae_model, n_samples=1, n_interpolations=2, n_pairs=1)
     combined_df = pd.concat([train_df, synthetic_df], ignore_index=True)
 
     # get train-val set from the train set, 50 for validation set
@@ -133,7 +133,7 @@ if __name__ == '__main__':
 
     # Training Triplet Model
     baseNetwork = 'baseCNN'
-    triplet_epochs = 10
+    triplet_epochs = 3
 
     strategy = tf.distribute.MirroredStrategy()
     print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
@@ -164,5 +164,5 @@ if __name__ == '__main__':
     print("Saving model...")
 
     model_utils.save_model(
-        base_instance, f'../../models/website/synthetic-{locations[0]}-{locations[1]}-{baseNetwork}-epochs{triplet_epochs}-train_samples{num_train_samples}-triplet_samples{num_triplet_samples}.keras')
+        base_instance, f'../../models-{locations[0]}-{locations[1]}/website',f'synthetic-{locations[0]}-{locations[1]}-{baseNetwork}-epochs{triplet_epochs}-train_samples{num_train_samples}-triplet_samples{num_triplet_samples}')
     print("Website Triplet Model Training Completed!")
