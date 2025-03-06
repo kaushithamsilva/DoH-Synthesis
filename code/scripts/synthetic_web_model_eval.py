@@ -106,3 +106,14 @@ if __name__ == '__main__':
     model = KNeighborsClassifier(n_neighbors=10)
     classification.evaluate_classification_model(
         get_embeddings_by_chunks(X_train, web_model), y_train, web_model(X_test), y_test, model)
+
+    print("KNN Classifier trained on synthetic data + actual source data")
+
+    combined_df = pd.concat([synthetic_df, source_df], ignore_index=True)
+    X_train = combined_df.iloc[:, 2:]
+    y_train = le.transform(combined_df['Website'])
+
+    print("\tWith Embedding:")
+    model = KNeighborsClassifier(n_neighbors=10)
+    classification.evaluate_classification_model(
+        get_embeddings_by_chunks(X_train, web_model), y_train, web_model(X_test), y_test, model)
