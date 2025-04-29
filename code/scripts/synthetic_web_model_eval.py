@@ -159,13 +159,15 @@ if __name__ == '__main__':
     y_train = train_df.Website
     y_available_classes = test_df[test_df['Location']
                                   == locations[0]].Website.to_numpy()
-    y_train = le.fit_transform(np.hstack((y_train, y_available_classes)))
+    y_train = np.hstack((y_train, y_available_classes))
+    y_synthetic = synthetic_df['Website'].to_numpy()
+    y_train = np.hstack((y_train, y_synthetic))
+    y_train = le.fit_transform(y_train)
+
     x_test = test_df[test_df['Location']
                      == locations[1]].iloc[:, 2:].to_numpy().astype(np.float32)
     y_test = test_df[test_df['Location']
                      == locations[1]].Website.to_numpy()
-    y_synthetic = synthetic_df['Website'].to_numpy()
-    y_test = np.hstack((y_test, y_synthetic))
 
     y_test = le.transform(y_test)
     print("\tWith Embedding:")
