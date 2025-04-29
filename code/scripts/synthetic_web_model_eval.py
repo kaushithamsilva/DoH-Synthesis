@@ -1,3 +1,4 @@
+from sklearn.calibration import LabelEncoder
 import triplet_functions
 import init_gpu
 import init_dataset
@@ -117,3 +118,29 @@ if __name__ == '__main__':
     model = KNeighborsClassifier(n_neighbors=10)
     classification.evaluate_classification_model(
         get_embeddings_by_chunks(X_train, web_model), y_train, web_model(X_test), y_test, model)
+
+    # Try with KNN Classifier with all 1500 websites.
+    print("\n\nKNN Classifier trained on all 1500 websites")
+    x_train = train_df.iloc[:, 2:].to_numpy().astype(np.float32)
+
+    x_available_classes_from_source = test_df[test_df['Location']
+                                              == locations[0]].iloc[:, 2:].to_numpy().astype(np.float32)
+
+    x_train = np.vstack((x_train, x_available_classes_from_source))
+
+    # get classes for class informed latent space
+    le = LabelEncoder()
+    y_train = train_df.Website
+    y_available_classes = test_df[test_df['Location']
+                                  == locations[0]].Website.to_numpy()
+    y_train = le.fit_transform(np.hstack((y_train, y_available_classes)))
+    x_test = test_df[test_df['Location']
+                     == locations[1]].iloc[:, 2:].to_numpy().astype(np.float32)
+    y_test = test_df[test_df['Location']
+                     == locations[1]].Website.to_numpy()
+    y_test = le.transform(y_test)
+    print("\tWith Embedding:")
+    model = KNeighborsClassifier(n_neighbors=10)
+    classification.evaluate_classification_model(
+        get_embeddings_by_chunks(x_train, web_model), y_train, get_embeddings_by_chunks(x_test, web_model), y_test, model)
+    # Try with a validation set for the triplet model.
