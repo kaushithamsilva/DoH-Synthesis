@@ -19,24 +19,32 @@ class GradientReversalLayer(keras.layers.Layer):
 
 
 def build_grl_model(input_dim, num_classes, num_locations, grl_lambda=1.0):
-    # Feature extractor
-    inputs = keras.Input(shape=(input_dim,))
-    features = triplet_functions.baseCNN(input_dim)(inputs)
+    # 1) Input is 2D (batch, input_dim)
+    inputs = keras.Input(shape=(input_dim,), name="feature_input")
 
-    # Label classifier head
+    # 2) Expand to 3D for Conv1D: (batch, input_dim, 1)
+    x = layers.Reshape((input_dim, 1))(inputs)
+
+    # 3) Now pass through your baseCNN
+    features = triplet_functions.baseCNN(input_dim)(x)
+
+    # 4) Label classifier head
     label_preds = layers.Dense(
-        num_classes, activation='softmax', name='label_classifier')(features)
+        num_classes, activation='softmax', name='label_classifier'
+    )(features)
 
-    # Domain classifier head with GRL
+    # 5) Domain classifier via GRL
     x_grl = GradientReversalLayer(lambda_=grl_lambda)(features)
     x = layers.Dense(64, activation='relu')(x_grl)
     domain_preds = layers.Dense(
-        num_locations, activation='softmax', name='domain_classifier')(x)
+        num_locations, activation='softmax', name='domain_classifier'
+    )(x)
 
-    model = keras.Model(inputs=inputs,
-                        outputs=[label_preds, domain_preds],
-                        name='feature_extractor_grl')
-    return model
+    return keras.Model(
+        inputs=inputs,
+        outputs=[label_preds, domain_preds],
+        name='feature_extractor_grl'
+    )
 
 
 if __name__ == '__main__':
