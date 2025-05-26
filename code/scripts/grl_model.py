@@ -1,4 +1,5 @@
 import tensorflow as tf
+import triplet_functions
 from tensorflow.keras import layers, models, optimizers
 import numpy as np
 import pandas as pd
@@ -118,7 +119,7 @@ def create_dann_model(input_shape, num_classes, grl_alpha=1.0):
     model_input = layers.Input(shape=input_shape, name="main_input")
 
     # Feature Extractor
-    feature_extractor = create_feature_extractor(input_shape)
+    feature_extractor = triplet_functions.baseTransformer(input_shape)
     features = feature_extractor(model_input)
 
     # Label Predictor branch
