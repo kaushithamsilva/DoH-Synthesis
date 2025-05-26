@@ -139,9 +139,9 @@ if __name__ == '__main__':
     assert not np.any(np.isnan(d)), "Domain labels contain NaN values."
 
     # Explicit check for NaNs/Infs in the input features X
-    if np.any(np.isnan(X)) or np.any(np.isinf(X)):
+    if not np.all(np.isfinite(X)):  # More robust check for NaNs and Infs
         print("Warning: Input data X contains NaN or Inf values! This can lead to unstable training.")
-        # Further handling might be needed here, e.g., imputation or removal of problematic rows.
+        # Consider adding data cleaning steps here if this warning appears frequently.
 
     # Dynamically determine num_classes and num_locations from the data
     num_classes = len(np.unique(y))
@@ -153,7 +153,9 @@ if __name__ == '__main__':
     model = build_grl_model(input_dim, num_classes, num_locations, grl_lambda)
 
     # Configure the Adam optimizer with a learning rate and gradient clipping
-    opt = tf.keras.optimizers.Adam(learning_rate=1e-4, clipnorm=1.0)
+    # Reduced learning rate and added clipvalue for better stability
+    opt = tf.keras.optimizers.Adam(
+        learning_rate=5e-5, clipnorm=1.0, clipvalue=0.5)  # Adjusted learning_rate
 
     # Compile the model with respective loss functions, loss weights, and metrics
     model.compile(
