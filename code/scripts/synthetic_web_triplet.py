@@ -166,7 +166,7 @@ if __name__ == '__main__':
 
     # training loop: regenerate every N epochs
     total_epochs = 1000
-    regenerate_every = 25
+    regenerate_every = 5
 
     for start in range(0, total_epochs, regenerate_every):
         end = min(start + regenerate_every, total_epochs)
@@ -176,9 +176,9 @@ if __name__ == '__main__':
         model.fit(
             [A, P, N],    # inputs
             A,            # anchor as target
-            epochs=regenerate_every,
+            epochs=start + regenerate_every,
             initial_epoch=start,
-            batch_size=32,
+            batch_size=128,
             shuffle=True
         )
 
