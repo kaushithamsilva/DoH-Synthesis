@@ -84,9 +84,9 @@ def build_grl_model(input_dim, num_classes, num_locations, grl_lambda=1.0):
     x = layers.Dense(64, activation='relu')(x_grl)
 
     # Final domain classification layer.
-    # Changed to use 'softmax' activation as requested.
-    domain_logits = layers.Dense(
-        num_locations, activation='softmax', name='domain_classifier')(x)
+    # IMPORTANT: Reverted to outputting logits (no activation) for numerical stability
+    # with SparseCategoricalCrossentropy(from_logits=True).
+    domain_logits = layers.Dense(num_locations, name='domain_classifier')(x)
 
     # Define the Keras Model with shared input and two distinct outputs.
     return keras.Model(
@@ -155,7 +155,7 @@ if __name__ == '__main__':
     # Configure the Adam optimizer with a learning rate and gradient clipping
     # Reduced learning rate and added clipvalue for better stability
     opt = tf.keras.optimizers.Adam(
-        learning_rate=1e-5)  # Adjusted learning_rate
+        learning_rate=5e-5, clipnorm=1.0, clipvalue=0.5)
 
     # Compile the model with respective loss functions, loss weights, and metrics
     model.compile(
@@ -165,9 +165,10 @@ if __name__ == '__main__':
             # `from_logits=False` because the `label_classifier` dense layer uses `softmax` activation.
             'label_classifier': tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
             # For domain classification, use SparseCategoricalCrossentropy.
-            # Changed `from_logits=True` to `from_logits=False` because the `domain_classifier`
-            # now uses `softmax` activation.
-            'domain_classifier': tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+            # IMPORTANT: Changed `from_logits=False` back to `from_logits=True` because the
+            # `domain_classifier` now outputs raw logits (no activation). This is the most
+            # numerically stable way to compute cross-entropy.
+            'domain_classifier': tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
         },
         loss_weights={
             # Weight for the label classification loss
