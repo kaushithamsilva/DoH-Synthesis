@@ -89,4 +89,17 @@ if __name__ == '__main__':
     model = KNeighborsClassifier(n_neighbors=10)
     classification.evaluate_classification_model(
         get_batched_encode(web_model, X_train), y_train, get_batched_encode(web_model, X_test), y_test, model)
+
+    print("Test only on the unseen websites in the target location.")
+    X_test = test_df[test_df['Location'] == locations[1]
+                     ].iloc[:, 2:].to_numpy().astype(np.float32)
+    y_test = test_df[test_df['Location'] == locations[1]
+                     ]['Website'].to_numpy().astype(np.int32)
+    y_test = le.transform(y_test)
+
+    print("With Embedding:")
+    model = KNeighborsClassifier(n_neighbors=10)
+    classification.evaluate_classification_model(
+        get_batched_encode(web_model, X_train), y_train, get_batched_encode(web_model, X_test), y_test, model)
+
     print("Done evaluating the model.")
