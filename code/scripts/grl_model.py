@@ -4,35 +4,18 @@ from tensorflow.keras import layers
 import triplet_functions  # Assuming this module provides the baseCNN
 
 
-class GradientReversalLayer(layers.Layer):
-    """
-    Gradient Reversal Layer for domain adaptation.
-    This layer reverses the gradient during backpropagation.
-    """
-
+class GradientReversalLayer(tf.keras.layers.Layer):
     def __init__(self, grl_lambda=1.0, **kwargs):
         super(GradientReversalLayer, self).__init__(**kwargs)
-        self.lambda_ = grl_lambda
+        self.grl_lambda = grl_lambda
 
-    def call(self, inputs):
-        # During the forward pass, we just return the inputs
-        return inputs
-
-    def compute_output_shape(self, input_shape):
-        return input_shape
-
-    def get_config(self):
-        config = super(GradientReversalLayer, self).get_config()
-        config.update({"lambda_": self.lambda_})
-        return config
-
-    def compute_gradients(self, loss, variables):
-        grads = super().compute_gradients(loss, variables)
-        # Reverse the gradients
-        for grad in grads:
-            if grad is not None:
-                grad *= -self.lambda_
-        return grads
+    def call(self, x):
+        @tf.custom_gradient
+        def grad_reverse(x):
+            def custom_grad(dy):
+                return -self.grl_lambda * dy
+            return x, custom_grad
+        return grad_reverse(x)
 
 
 def build_grl_model(input_dim, num_classes, num_locations, grl_lambda=1.0):
