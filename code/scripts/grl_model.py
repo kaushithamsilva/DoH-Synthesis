@@ -149,8 +149,8 @@ if __name__ == "__main__":
     init_gpu.initialize_gpus()
 
     # Hyperparameters
-    batch_size = 128
-    epochs = 100
+    batch_size = 256
+    epochs = 500
     grl_alpha = 1.0  # Strength of the gradient reversal
 
     # --- User's Data Loading and Preprocessing ---
