@@ -176,7 +176,8 @@ if __name__ == '__main__':
     print("Base model loaded successfully!")
 
     model = triplet_functions.triplet_learning(base, input_dim)
-    model.compile(optimizer='adam', loss=triplet_functions.triplet_loss_func)
+    model.compile(optimizer='adam', loss=lambda y_true,
+                  y_pred: triplet_functions.triplet_loss_func(y_true, y_pred, alpha=0.4))
 
     # training loop: regenerate every N epochs
     total_epochs = 50
