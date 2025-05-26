@@ -36,13 +36,11 @@ def build_grl_model(input_dim, num_classes, num_locations, grl_lambda=1.0):
     # 5) Domain classifier via GRL
     x_grl = GradientReversalLayer(lambda_=grl_lambda)(features)
     x = layers.Dense(64, activation='relu')(x_grl)
-    domain_preds = layers.Dense(
-        num_locations, activation='softmax', name='domain_classifier'
-    )(x)
+    domain_logits = layers.Dense(num_locations, name='domain_classifier')(x)
 
     return keras.Model(
         inputs=inputs,
-        outputs=[label_preds, domain_preds],
+        outputs=[label_preds, domain_logits],
         name='feature_extractor_grl'
     )
 
@@ -86,8 +84,8 @@ if __name__ == '__main__':
     model.compile(
         optimizer=opt,
         loss={
-            'label_classifier': 'sparse_categorical_crossentropy',
-            'domain_classifier': 'sparse_categorical_crossentropy'
+            'label_classifier': tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+            'domain_classifier': tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
         },
         loss_weights={
             'label_classifier': 1.0,
