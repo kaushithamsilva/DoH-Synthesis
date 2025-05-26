@@ -70,29 +70,34 @@ if __name__ == '__main__':
     d = train_df['Location'].apply(
         lambda x: 0 if x == locations[0] else 1).to_numpy().astype(int)
 
+    assert set(np.unique(d)).issubset({0, 1})
+    assert not np.any(np.isnan(d))
+
     # Example usage
     input_dim = 128  # e.g., feature vector length
     num_classes = 1500
     num_locations = 2
-    grl_lambda = 0.5
+
+    grl_lambda = 0.1
 
     model = build_grl_model(input_dim, num_classes, num_locations, grl_lambda)
+
+    opt = tf.keras.optimizers.Adam(learning_rate=1e-4, clipnorm=1.0)
     model.compile(
-        optimizer='adam',
+        optimizer=opt,
         loss={
             'label_classifier': 'sparse_categorical_crossentropy',
             'domain_classifier': 'sparse_categorical_crossentropy'
         },
         loss_weights={
             'label_classifier': 1.0,
-            'domain_classifier': 1.0
+            'domain_classifier': 0.1
         },
         metrics={
             'label_classifier': 'accuracy',
             'domain_classifier': 'accuracy'
         }
     )
-    model.summary()
 
     model.fit(
         X,
