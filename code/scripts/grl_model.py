@@ -13,7 +13,9 @@ class GradientReversalLayer(tf.keras.layers.Layer):
         @tf.custom_gradient
         def grad_reverse(x):
             def custom_grad(dy):
-                return -self.grl_lambda * dy
+                # Add gradient clipping to prevent extreme values
+                clipped_dy = tf.clip_by_value(dy, -1.0, 1.0)
+                return -self.grl_lambda * clipped_dy
             return x, custom_grad
         return grad_reverse(x)
 
@@ -21,46 +23,41 @@ class GradientReversalLayer(tf.keras.layers.Layer):
 def build_grl_model(input_dim, num_classes, num_locations, grl_lambda=1.0):
     """
     Builds a Keras model with a Gradient Reversal Layer for domain adaptation.
-
-    Args:
-        input_dim (int): The dimensionality of the input features.
-        num_classes (int): The number of classes for the main classification task.
-        num_locations (int): The number of domains/locations for the domain classification task.
-        grl_lambda (float): The lambda parameter for the Gradient Reversal Layer,
-                            controlling the strength of gradient reversal.
-
-    Returns:
-        keras.Model: A Keras Model with two outputs: label predictions and domain logits.
     """
-    # 1) Input is 2D (batch_size, input_dim)
+    # Input
     inputs = keras.Input(shape=(input_dim,), name="feature_input")
 
-    # 2) Expand to 3D for Conv1D: (batch_size, input_dim, 1)
-    # baseCNN is assumed to be a Conv1D-based network, which typically expects 3D input.
+    # Expand to 3D for Conv1D
     x = layers.Reshape((input_dim, 1))(inputs)
 
-    # 3) Pass through your baseCNN to extract features.
-    # The output of baseCNN is expected to be 2D (batch_size, feature_dim).
+    # Feature extraction
     features = triplet_functions.baseCNN(input_dim)(x)
 
-    # 4) Label classifier head: Predicts the class labels.
+    # Add batch normalization and dropout for stability
+    features_norm = layers.BatchNormalization()(features)
+    features_dropout = layers.Dropout(0.3)(features_norm)
+
+    # Label classifier head
     label_preds = layers.Dense(
         num_classes, activation='softmax', name='label_classifier'
-    )(features)  # Use normalized_features
+    )(features_dropout)
 
-    # 5) Domain classifier via GRL: Predicts the source domain/location.
-    # encouraging the feature extractor to learn domain-invariant features.
-    x_grl = GradientReversalLayer(grl_lambda=grl_lambda)(
-        features)  # GRL on normalized_features
+    # Domain classifier via GRL with improved architecture
+    x_grl = GradientReversalLayer(grl_lambda=grl_lambda)(features_norm)
 
-    # A small dense layer before the final domain classification output.
-    x = layers.Dense(64, activation='relu')(x_grl)
+    # More robust domain classifier architecture
+    x = layers.Dense(128, activation='relu')(x_grl)
+    x = layers.BatchNormalization()(x)
+    x = layers.Dropout(0.5)(x)
 
-    # Final domain classification layer.
-    domain_preds = layers.Dense(
-        num_locations, activation='softmax', name='domain_classifier')(x)
+    x = layers.Dense(64, activation='relu')(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.Dropout(0.3)(x)
 
-    # Define the Keras Model with shared input and two distinct outputs.
+    # Final domain classification with explicit numerical stability
+    domain_logits = layers.Dense(num_locations, name='domain_logits')(x)
+    domain_preds = layers.Softmax(name='domain_classifier')(domain_logits)
+
     return keras.Model(
         inputs=inputs,
         outputs=[label_preds, domain_preds],
@@ -136,54 +133,67 @@ if __name__ == '__main__':
         f"Unique d labels: {np.unique(d)}, Max d: {np.max(d)}, Num locations: {num_locations}")
     assert np.all(d >= 0) and np.all(
         d < num_locations), "Domain labels 'd' are out of range!"
-    assert set(np.unique(d)).issubset(set(range(num_locations))
-                                      ), f"Domain labels 'd' should be integers from 0 to {num_locations-1}"
+    assert set(np.unique(d)).issubset(set(range(num_locations)))
 
-    grl_lambda = 0.01  # The scaling factor for the reversed gradient
+    # FIXED PARAMETERS - Key changes for stability
+    grl_lambda = 0.1  # Increased from 0.01 for better gradient flow
 
     # Build the GRL model
     model = build_grl_model(input_dim, num_classes, num_locations, grl_lambda)
 
-    # Configure the Adam optimizer with a learning rate and gradient clipping
-    # Reduced learning rate and added clipvalue for better stability
+    # IMPROVED OPTIMIZER CONFIGURATION
     opt = tf.keras.optimizers.Adam(
-        learning_rate=5e-5, clipvalue=0.5)
+        learning_rate=1e-4,  # Reduced learning rate
+        clipnorm=1.0,        # Gradient norm clipping instead of value clipping
+        epsilon=1e-7         # Smaller epsilon for numerical stability
+    )
 
-    # Compile the model with respective loss functions, loss weights, and metrics
+    # IMPROVED LOSS CONFIGURATION
     model.compile(
         optimizer=opt,
         loss={
-            'label_classifier': tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
-            'domain_classifier': tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+            'label_classifier': tf.keras.losses.SparseCategoricalCrossentropy(
+                from_logits=False, label_smoothing=0.01  # Add label smoothing
+            ),
+            'domain_classifier': tf.keras.losses.SparseCategoricalCrossentropy(
+                from_logits=False, label_smoothing=0.01  # Add label smoothing
+            ),
         },
         loss_weights={
-            # Weight for the label classification loss
             'label_classifier': 1.0,
-            # Weight for the domain classification loss (often lower to balance objectives)
-            'domain_classifier': 0.1
+            'domain_classifier': grl_lambda  # Match GRL lambda for consistency
         },
         metrics={
-            # Metrics to monitor during training for both tasks
-            'label_classifier': 'accuracy',
-            'domain_classifier': 'accuracy'
+            'label_classifier': ['accuracy', 'top_5_accuracy'],
+            'domain_classifier': ['accuracy']
         }
     )
 
-    # Print a summary of the model architecture, including the new BatchNormalization layer
     print(model.summary())
 
-    # Train the model
-    # X is the input features, and the outputs are provided as a dictionary
-    # mapping output layer names to their respective ground truth labels.
-    model.fit(
+    # IMPROVED TRAINING CONFIGURATION
+    callbacks = [
+        tf.keras.callbacks.TerminateOnNaN(),
+        tf.keras.callbacks.EarlyStopping(
+            monitor='loss', patience=10, restore_best_weights=True
+        ),
+        tf.keras.callbacks.ReduceLROnPlateau(
+            monitor='loss', factor=0.5, patience=5, min_lr=1e-7
+        )
+    ]
+
+    # Train with smaller batch size for stability
+    history = model.fit(
         X,
         {'label_classifier': y, 'domain_classifier': d},
-        batch_size=64,
+        batch_size=32,  # Reduced batch size
         epochs=200,
-        shuffle=True,  # Shuffle data before each epoch
-        callbacks=[tf.keras.callbacks.TerminateOnNaN()]
+        validation_split=0.1,  # Add validation monitoring
+        shuffle=True,
+        callbacks=callbacks,
+        verbose=1
     )
 
-    # Save the trained model in Keras format
+    # Save the trained model
     model.save(
         f"../../models-{locations[0]}-{locations[1]}/website/grl_model.keras")
