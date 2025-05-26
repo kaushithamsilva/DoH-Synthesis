@@ -11,6 +11,32 @@ import numpy as np
 import tensorflow as tf
 
 
+def batched_encode(vae, x, batch_size=256):
+    """
+    Run vae.encode on x in smaller chunks to fit memory.
+    Returns concatenated z_sample of shape (len(x), latent_dim).
+    """
+    z_list = []
+    for i in range(0, len(x), batch_size):
+        chunk = x[i:i+batch_size]
+        _, _, z_chunk = vae.encode(chunk)
+        z_list.append(z_chunk)
+    return np.concatenate(z_list, axis=0)
+
+
+def batched_decode(vae, z, batch_size=256):
+    """
+    Run vae.decode on z in smaller chunks.
+    Returns concatenated reconstructions of shape (len(z), D).
+    """
+    x_list = []
+    for i in range(0, len(z), batch_size):
+        chunk = z[i:i+batch_size]
+        x_chunk = vae.decode(chunk)
+        x_list.append(x_chunk)
+    return np.concatenate(x_list, axis=0)
+
+
 def synth_triplets_offline(df, vae):
     """
     Precompute synthetic triplets for the entire df in a batched, vectorized way:
@@ -86,10 +112,15 @@ def synth_triplets_offline(df, vae):
         feats[n2].reshape(N, 1, D)
     ], axis=1).reshape(-1, D)
 
+    encode_bs = 1024  # batch size for encoding
+    decode_bs = 1024  # batch size for decoding
     # 3) One-shot VAE encoding
-    # vae.encode returns (z_mean, z_log_var, z_sample)
-    _, _, zp_all = vae.encode(batch_p)  # shape (2*N, latent_dim)
-    _, _, zn_all = vae.encode(batch_n)
+    # encode in smaller chunks
+    zp_all = batched_encode(vae, batch_p, batch_size=encode_bs)
+    zn_all = batched_encode(vae, batch_n, batch_size=encode_bs)
+
+    zp_all = zp_all.reshape(N, 2, -1)
+    zn_all = zn_all.reshape(N, 2, -1)
 
     latent_dim = zp_all.shape[-1]
     zp_all = zp_all.reshape(N, 2, latent_dim)
@@ -102,8 +133,8 @@ def synth_triplets_offline(df, vae):
     zn_interp = zn_all[:, 0, :] + (zn_all[:, 1, :] - zn_all[:, 0, :]) * eps_n
 
     # 5) One-shot VAE decoding
-    synth_p = vae.decode(zp_interp)  # shape (N, D)
-    synth_n = vae.decode(zn_interp)
+    synth_p = batched_decode(vae, zp_interp, batch_size=decode_bs)
+    synth_n = batched_decode(vae, zn_interp, batch_size=decode_bs)
 
     # 6) Anchors are just the original features
     anchors = feats
@@ -147,7 +178,7 @@ if __name__ == '__main__':
             A,            # anchor as target
             epochs=regenerate_every,
             initial_epoch=start,
-            batch_size=128,
+            batch_size=32,
             shuffle=True
         )
 
