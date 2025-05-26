@@ -142,6 +142,12 @@ def create_dann_model(input_shape, num_classes, grl_alpha=1.0):
 
 # --- Demonstration with User's Data Loading ---
 if __name__ == "__main__":
+    import init_gpu
+    import init_dataset
+    import pandas as pd
+
+    init_gpu.initialize_gpus()
+
     # Hyperparameters
     batch_size = 32
     epochs = 10
@@ -154,15 +160,10 @@ if __name__ == "__main__":
         f"../../dataset/processed/{locations[0]}-{locations[1]}-scaled-balanced.csv")
 
     # Assuming init_dataset.get_sample is available and works as expected
-    # train_df, test_df, _, _ = init_dataset.get_sample(df, locations, range(1500), 1200)
+    train_df, test_df, _, _ = init_dataset.get_sample(
+        df, locations, range(1500), 1200)
     # For demonstration, let's simulate get_sample if init_dataset is not available
     # In a real scenario, replace this with your actual init_dataset.get_sample call
-
-    # Simple split for demonstration if init_dataset is not linked
-    num_samples = len(df)
-    train_size = int(0.8 * num_samples)
-    train_df = df.iloc[:train_size].copy()
-    test_df = df.iloc[train_size:].copy()
 
     # IMPORTANT!: append the source data from the test set to the training set
     # This means train_df now contains source (LOC2) from original train and test,
@@ -179,10 +180,12 @@ if __name__ == "__main__":
     # Assuming 'Website' contains integer labels starting from 0
     num_classes = df['Website'].nunique()
 
+    # --- IMPORTANT CHANGE: Reshape data for Conv1D assuming input_dim is sequence_length ---
     # Reshape data for Conv1D: (num_samples, sequence_length, num_features)
-    # Here, sequence_length is 1, and num_features is input_dim
-    sequence_length = 1
-    num_features = input_dim
+    # Here, sequence_length is input_dim, and num_features is 1
+    # The number of feature columns is now the sequence length
+    sequence_length = input_dim
+    num_features = 1  # Each element in the sequence is a single feature
     input_shape = (sequence_length, num_features)
 
     # Prepare Source Data
@@ -200,7 +203,7 @@ if __name__ == "__main__":
     # Domain label for target: 1
     d_target = np.ones((len(X_target), 1), dtype=np.float32)
 
-    # Reshape X_source and X_target for Conv1D input (num_samples, 1, num_features)
+    # Reshape X_source and X_target for Conv1D input (num_samples, sequence_length, num_features)
     X_source = X_source.reshape(-1, sequence_length, num_features)
     X_target = X_target.reshape(-1, sequence_length, num_features)
 
@@ -209,8 +212,8 @@ if __name__ == "__main__":
     print(
         f"Target data shape: {X_target.shape}, Target domain shape: {d_target.shape}")
     print(f"Number of classes: {num_classes}")
-    print(f"Input dimension (features per timestep): {input_dim}")
-    print(f"Model input shape: {input_shape}")
+    print(f"Input dimension (original number of features): {input_dim}")
+    print(f"Model input shape (sequence_length, num_features): {input_shape}")
 
     # Create the DANN model
     dann_model = create_dann_model(
@@ -326,7 +329,3 @@ if __name__ == "__main__":
 
         # You can also save the model
         # dann_model.save("dann_1d_sequence_model")
-
-    dann_model.save(
-        f"../../models-{locations[0]}-{locations[1]}/website/dann_model.keras")
-    print('DANN model training completed successfully!')
