@@ -1,199 +1,332 @@
 import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import layers
-import triplet_functions  # Assuming this module provides the baseCNN
+from tensorflow.keras import layers, models, optimizers
+import numpy as np
+import pandas as pd
+
+# Assuming these are available in your environment
+# import init_gpu
+# import init_dataset
+
+# 1. Custom Gradient Reversal Layer (GRL)
 
 
-class GradientReversalLayer(tf.keras.layers.Layer):
-    def __init__(self, grl_lambda=1.0, **kwargs):
-        super(GradientReversalLayer, self).__init__(**kwargs)
-        self.grl_lambda = grl_lambda
-
-    def call(self, x):
-        @tf.custom_gradient
-        def grad_reverse(x):
-            def custom_grad(dy):
-                # Add gradient clipping to prevent extreme values
-                clipped_dy = tf.clip_by_value(dy, -1.0, 1.0)
-                return -self.grl_lambda * clipped_dy
-            return x, custom_grad
-        return grad_reverse(x)
-
-
-def build_grl_model(input_dim, num_classes, num_locations, grl_lambda=1.0):
+class GradientReversal(layers.Layer):
     """
-    Builds a Keras model with a Gradient Reversal Layer for domain adaptation.
+    A custom Keras layer that implements the Gradient Reversal Layer (GRL).
+    During the forward pass, it acts as an identity function.
+    During the backward pass, it multiplies the gradients by a negative scalar (alpha).
     """
-    # Input
-    inputs = keras.Input(shape=(input_dim,), name="feature_input")
 
-    # Expand to 3D for Conv1D
-    x = layers.Reshape((input_dim, 1))(inputs)
+    def __init__(self, alpha=1.0, **kwargs):
+        super(GradientReversal, self).__init__(**kwargs)
+        self.alpha = tf.constant(alpha, dtype=tf.float32)
 
-    # Feature extraction
-    features = triplet_functions.baseCNN(input_dim)(x)
+    @tf.custom_gradient
+    def _reverse_gradient(self, x):
+        """
+        Internal function to define the custom gradient.
+        """
+        def grad(dy):
+            # Reverse the gradient by multiplying with -alpha
+            return -self.alpha * dy
+        return x, grad
 
-    # Add batch normalization and dropout for stability
-    features_norm = layers.BatchNormalization()(features)
-    features_dropout = layers.Dropout(0.3)(features_norm)
+    def call(self, inputs):
+        """
+        Forward pass: simply returns the inputs.
+        """
+        return self._reverse_gradient(inputs)
 
-    # Label classifier head
-    label_preds = layers.Dense(
-        num_classes, activation='softmax', name='label_classifier'
-    )(features_dropout)
+    def get_config(self):
+        """
+        Required for saving and loading the model with custom layers.
+        """
+        config = super(GradientReversal, self).get_config()
+        config.update({"alpha": self.alpha.numpy()})
+        return config
 
-    # Domain classifier via GRL with improved architecture
-    x_grl = GradientReversalLayer(grl_lambda=grl_lambda)(features_norm)
+# 2. Define the Feature Extractor Network (Conv1D)
 
-    # More robust domain classifier architecture
-    x = layers.Dense(128, activation='relu')(x_grl)
+
+def create_feature_extractor(input_shape):
+    """
+    Creates a Conv1D-based feature extractor for 1D sequence data.
+    input_shape: (sequence_length, num_features)
+    """
+    model_input = layers.Input(
+        shape=input_shape, name="feature_extractor_input")
+
+    x = layers.Conv1D(filters=64, kernel_size=5,
+                      activation='relu', padding='same')(model_input)
     x = layers.BatchNormalization()(x)
+    x = layers.MaxPooling1D(pool_size=2)(x)
+
+    x = layers.Conv1D(filters=128, kernel_size=5,
+                      activation='relu', padding='same')(x)
+    x = layers.BatchNormalization()(x)
+    x = layers.MaxPooling1D(pool_size=2)(x)
+
+    x = layers.Conv1D(filters=256, kernel_size=3,
+                      activation='relu', padding='same')(x)
+    x = layers.BatchNormalization()(x)
+    # Use GlobalAveragePooling for fixed-size output
+    x = layers.GlobalAveragePooling1D()(x)
+
+    # Output features for subsequent networks
+    features = layers.Dense(256, activation='relu', name="features_output")(x)
+    return models.Model(inputs=model_input, outputs=features, name="feature_extractor")
+
+# 3. Define the Label Predictor Network
+
+
+def create_label_predictor(num_classes):
+    """
+    Creates a dense network for predicting labels from extracted features.
+    """
+    feature_input = layers.Input(shape=(
+        256,), name="label_predictor_input")  # Input shape from feature extractor
+    x = layers.Dense(128, activation='relu')(feature_input)
     x = layers.Dropout(0.5)(x)
+    label_output = layers.Dense(
+        num_classes, activation='softmax', name="label_output")(x)
+    return models.Model(inputs=feature_input, outputs=label_output, name="label_predictor")
 
-    x = layers.Dense(64, activation='relu')(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.3)(x)
+# 4. Define the Domain Classifier Network
 
-    # Final domain classification with explicit numerical stability
-    domain_logits = layers.Dense(num_locations, name='domain_logits')(x)
-    domain_preds = layers.Softmax(name='domain_classifier')(domain_logits)
 
-    return keras.Model(
-        inputs=inputs,
-        outputs=[label_preds, domain_preds],
-        name='feature_extractor_grl'
+def create_domain_classifier():
+    """
+    Creates a dense network for classifying the domain (source/target) from features.
+    """
+    grl_input = layers.Input(
+        shape=(256,), name="domain_classifier_input")  # Input shape from GRL output
+    x = layers.Dense(128, activation='relu')(grl_input)
+    x = layers.Dropout(0.5)(x)
+    domain_output = layers.Dense(1, activation='sigmoid', name="domain_output")(
+        x)  # Binary classification
+    return models.Model(inputs=grl_input, outputs=domain_output, name="domain_classifier")
+
+# 5. Combine the models into a single DANN (Domain-Adversarial Neural Network) model
+
+
+def create_dann_model(input_shape, num_classes, grl_alpha=1.0):
+    """
+    Combines the feature extractor, label predictor, and domain classifier
+    into a single DANN model.
+    """
+    # Input for the entire model
+    model_input = layers.Input(shape=input_shape, name="main_input")
+
+    # Feature Extractor
+    feature_extractor = create_feature_extractor(input_shape)
+    features = feature_extractor(model_input)
+
+    # Label Predictor branch
+    label_predictor = create_label_predictor(num_classes)
+    label_predictions = label_predictor(features)
+
+    # Domain Classifier branch with GRL
+    grl_layer = GradientReversal(alpha=grl_alpha, name="grl_layer")
+    reversed_features = grl_layer(features)
+    domain_classifier = create_domain_classifier()
+    domain_predictions = domain_classifier(reversed_features)
+
+    # Create the full model with two outputs
+    dann_model = models.Model(
+        inputs=model_input,
+        outputs=[label_predictions, domain_predictions],
+        name="dann_model"
     )
+    return dann_model
 
 
-if __name__ == '__main__':
-    # Import necessary modules for running the example
-    import init_gpu
-    import init_dataset
-    import pandas as pd
-    import numpy as np
+# --- Demonstration with User's Data Loading ---
+if __name__ == "__main__":
+    # Hyperparameters
+    batch_size = 32
+    epochs = 10
+    grl_alpha = 1.0  # Strength of the gradient reversal
 
-    # Initialize GPUs if available
-    init_gpu.initialize_gpus()
-
-    # Define locations for dataset loading
+    # --- User's Data Loading and Preprocessing ---
+    # init_gpu.initialize_gpus() # Uncomment if you have this module
     locations = ['LOC2', 'LOC3']
-
-    # Load the processed and scaled dataset
     df = pd.read_csv(
         f"../../dataset/processed/{locations[0]}-{locations[1]}-scaled-balanced.csv")
 
-    # Get sample data for training and testing
-    train_df, test_df, _, _ = init_dataset.get_sample(
-        df, locations, range(1500), 1200)
+    # Assuming init_dataset.get_sample is available and works as expected
+    # train_df, test_df, _, _ = init_dataset.get_sample(df, locations, range(1500), 1200)
+    # For demonstration, let's simulate get_sample if init_dataset is not available
+    # In a real scenario, replace this with your actual init_dataset.get_sample call
 
-    # Determine the input dimension based on the training data (excluding 'Website' and 'Location' columns)
-    input_dim = train_df.shape[1] - 2
-    print(f"Input dimension: {input_dim}")
+    # Simple split for demonstration if init_dataset is not linked
+    num_samples = len(df)
+    train_size = int(0.8 * num_samples)
+    train_df = df.iloc[:train_size].copy()
+    test_df = df.iloc[train_size:].copy()
 
+    # IMPORTANT!: append the source data from the test set to the training set
+    # This means train_df now contains source (LOC2) from original train and test,
+    # and target (LOC3) from original train.
     train_df = pd.concat(
         [train_df, test_df[test_df['Location'] == locations[0]]])
 
-    # Prepare input features (X), website labels (y), and domain labels (d)
-    X = train_df.iloc[:, 2:].to_numpy().astype(np.float32)
-    y = train_df['Website'].to_numpy().astype(int)
-    # Convert 'Location' strings to integer labels (0 for source, 1 for target)
-    d = train_df['Location'].apply(
-        lambda x: 0 if x == locations[0] else 1).to_numpy().astype(int)
+    # Determine input_dim and num_classes from the loaded data
+    # Exclude 'Website' (label) and 'Location' (domain) columns from features
+    feature_columns = [
+        col for col in train_df.columns if col not in ['Website', 'Location']]
+    input_dim = len(feature_columns)
 
-    # Assertions to ensure data integrity
-    assert set(np.unique(d)).issubset(
-        {0, 1}), "Domain labels should only be 0 or 1."
-    assert not np.any(np.isnan(d)), "Domain labels contain NaN values."
+    # Assuming 'Website' contains integer labels starting from 0
+    num_classes = df['Website'].nunique()
 
-    # Explicit check for NaNs/Infs in the input features X
-    if not np.all(np.isfinite(X)):  # More robust check for NaNs and Infs
-        print("Warning: Input data X contains NaN or Inf values! This can lead to unstable training.")
-        # Consider adding data cleaning steps here if this warning appears frequently.
+    # Reshape data for Conv1D: (num_samples, sequence_length, num_features)
+    # Here, sequence_length is 1, and num_features is input_dim
+    sequence_length = 1
+    num_features = input_dim
+    input_shape = (sequence_length, num_features)
 
-    if not np.all(np.isfinite(X)):
-        print("ERROR: Input data X contains NaN or Inf values!")
-        num_nans = np.sum(np.isnan(X))
-        num_infs = np.sum(np.isinf(X))
-        print(
-            f"Number of NaNs in X: {num_nans}, Number of Infs in X: {num_infs}")
-        # Consider handling these, e.g., by imputation or removing problematic rows/columns
-    else:
-        print("Input data X is finite (no NaNs or Infs).")
+    # Prepare Source Data
+    source_df = train_df[train_df['Location'] == locations[0]]
+    X_source = source_df[feature_columns].values.astype(np.float32)
+    y_source = source_df['Website'].values.astype(
+        np.int32)  # Labels are integer
+    # Domain label for source: 0
+    d_source = np.zeros((len(X_source), 1), dtype=np.float32)
 
-    # Dynamically determine num_classes and num_locations from the data
-    num_classes = len(np.unique(y))
-    num_locations = len(np.unique(d))
+    # Prepare Target Data
+    target_df = train_df[train_df['Location'] == locations[1]]
+    X_target = target_df[feature_columns].values.astype(np.float32)
+    # For unsupervised DA, target labels (y_target) are not used for label prediction loss
+    # Domain label for target: 1
+    d_target = np.ones((len(X_target), 1), dtype=np.float32)
 
-    print(
-        f"Unique y labels: {np.unique(y)}, Max y: {np.max(y)}, Num classes: {num_classes}")
-    assert np.all(y >= 0) and np.all(
-        y < num_classes), "Class labels 'y' are out of range!"
+    # Reshape X_source and X_target for Conv1D input (num_samples, 1, num_features)
+    X_source = X_source.reshape(-1, sequence_length, num_features)
+    X_target = X_target.reshape(-1, sequence_length, num_features)
 
     print(
-        f"Unique d labels: {np.unique(d)}, Max d: {np.max(d)}, Num locations: {num_locations}")
-    assert np.all(d >= 0) and np.all(
-        d < num_locations), "Domain labels 'd' are out of range!"
-    assert set(np.unique(d)).issubset(set(range(num_locations)))
+        f"Source data shape: {X_source.shape}, Source labels shape: {y_source.shape}, Source domain shape: {d_source.shape}")
+    print(
+        f"Target data shape: {X_target.shape}, Target domain shape: {d_target.shape}")
+    print(f"Number of classes: {num_classes}")
+    print(f"Input dimension (features per timestep): {input_dim}")
+    print(f"Model input shape: {input_shape}")
 
-    # FIXED PARAMETERS - Key changes for stability
-    grl_lambda = 0.1  # Increased from 0.01 for better gradient flow
+    # Create the DANN model
+    dann_model = create_dann_model(
+        input_shape, num_classes, grl_alpha=grl_alpha)
 
-    # Build the GRL model
-    model = build_grl_model(input_dim, num_classes, num_locations, grl_lambda)
-
-    # IMPROVED OPTIMIZER CONFIGURATION
-    opt = tf.keras.optimizers.Adam(
-        learning_rate=1e-4,  # Reduced learning rate
-        clipnorm=1.0,        # Gradient norm clipping instead of value clipping
-        epsilon=1e-7         # Smaller epsilon for numerical stability
-    )
-
-    # IMPROVED LOSS CONFIGURATION
-    model.compile(
-        optimizer=opt,
+    # Compile the model
+    dann_model.compile(
+        optimizer=optimizers.Adam(learning_rate=0.001),
         loss={
-            'label_classifier': tf.keras.losses.SparseCategoricalCrossentropy(
-                from_logits=False
-            ),
-            'domain_classifier': tf.keras.losses.SparseCategoricalCrossentropy(
-                from_logits=False
-            ),
+            "label_output": tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
+            "domain_output": tf.keras.losses.BinaryCrossentropy()
         },
         loss_weights={
-            'label_classifier': 1.0,
-            'domain_classifier': grl_lambda  # Match GRL lambda for consistency
+            "label_output": 1.0,
+            "domain_output": 1.0
         },
         metrics={
-            'label_classifier': ['accuracy'],
-            'domain_classifier': ['accuracy']
+            "label_output": ['accuracy'],
+            "domain_output": ['accuracy']
         }
     )
 
-    print(model.summary())
+    dann_model.summary()
 
-    # IMPROVED TRAINING CONFIGURATION
-    callbacks = [
-        tf.keras.callbacks.TerminateOnNaN(),
-        tf.keras.callbacks.EarlyStopping(
-            monitor='loss', patience=10, restore_best_weights=True
-        ),
-        tf.keras.callbacks.ReduceLROnPlateau(
-            monitor='loss', factor=0.5, patience=5, min_lr=1e-7
-        )
-    ]
+    # --- Custom Training Loop ---
+    source_dataset = tf.data.Dataset.from_tensor_slices(
+        (X_source, y_source, d_source)).shuffle(buffer_size=len(X_source)).batch(batch_size)
+    target_dataset = tf.data.Dataset.from_tensor_slices(
+        (X_target, d_target)).shuffle(buffer_size=len(X_target)).batch(batch_size)
 
-    # Train with smaller batch size for stability
-    history = model.fit(
-        X,
-        {'label_classifier': y, 'domain_classifier': d},
-        batch_size=32,  # Reduced batch size
-        epochs=200,
-        validation_split=0.1,  # Add validation monitoring
-        shuffle=True,
-        callbacks=callbacks,
-        verbose=1
-    )
+    source_iter = iter(source_dataset.repeat())
+    target_iter = iter(target_dataset.repeat())
 
-    # Save the trained model
-    model.save(
-        f"../../models-{locations[0]}-{locations[1]}/website/grl_model.keras")
+    optimizer = optimizers.Adam(learning_rate=0.001)
+
+    label_loss_fn = tf.keras.losses.SparseCategoricalCrossentropy(
+        from_logits=False)
+    domain_loss_fn = tf.keras.losses.BinaryCrossentropy(from_logits=False)
+
+    label_accuracy_metric = tf.keras.metrics.SparseCategoricalAccuracy()
+    domain_accuracy_metric = tf.keras.metrics.BinaryAccuracy()
+
+    @tf.function
+    def train_step(source_batch, target_batch):
+        X_s, y_s, d_s = source_batch
+        X_t, d_t = target_batch
+
+        X_combined_domain = tf.concat([X_s, X_t], axis=0)
+        d_combined = tf.concat([d_s, d_t], axis=0)
+
+        with tf.GradientTape() as tape:
+            label_preds_s, _ = dann_model(X_s, training=True)
+            label_loss = label_loss_fn(y_s, label_preds_s)
+
+            _, domain_preds_combined = dann_model(
+                X_combined_domain, training=True)
+            domain_loss = domain_loss_fn(d_combined, domain_preds_combined)
+
+            total_loss = label_loss + domain_loss
+
+        gradients = tape.gradient(total_loss, dann_model.trainable_variables)
+        optimizer.apply_gradients(
+            zip(gradients, dann_model.trainable_variables))
+
+        label_accuracy_metric.update_state(y_s, label_preds_s)
+        domain_accuracy_metric.update_state(d_combined, domain_preds_combined)
+
+        return label_loss, domain_loss
+
+    print("\nStarting custom training loop...")
+    num_batches = min(len(X_source) // batch_size, len(X_target) // batch_size)
+    if num_batches == 0:
+        print("Not enough samples to form a batch. Please check your data size and batch_size.")
+    else:
+        for epoch in range(epochs):
+            label_accuracy_metric.reset_states()
+            domain_accuracy_metric.reset_states()
+            total_label_loss = 0.0
+            total_domain_loss = 0.0
+
+            for i in range(num_batches):
+                source_batch = next(source_iter)
+                target_batch = next(target_iter)
+                l_loss, d_loss = train_step(source_batch, target_batch)
+                total_label_loss += l_loss
+                total_domain_loss += d_loss
+
+            avg_label_loss = total_label_loss / num_batches
+            avg_domain_loss = total_domain_loss / num_batches
+            label_acc = label_accuracy_metric.result()
+            domain_acc = domain_accuracy_metric.result()
+
+            print(f"Epoch {epoch+1}/{epochs}: "
+                  f"Label Loss: {avg_label_loss:.4f}, Label Acc: {label_acc:.4f}, "
+                  f"Domain Loss: {avg_domain_loss:.4f}, Domain Acc: {domain_acc:.4f}")
+
+        print("\nTraining complete.")
+
+        # Example: Check domain classifier performance on source and target separately
+        _, domain_preds_source = dann_model(X_source, training=False)
+        _, domain_preds_target = dann_model(X_target, training=False)
+
+        source_domain_acc = np.mean((domain_preds_source.numpy() > 0.5).astype(
+            int) == 0)  # Expected 0 for source
+        target_domain_acc = np.mean((domain_preds_target.numpy() > 0.5).astype(
+            int) == 1)  # Expected 1 for target
+
+        print(
+            f"\nDomain Classifier Accuracy (Source): {source_domain_acc:.4f}")
+        print(f"Domain Classifier Accuracy (Target): {target_domain_acc:.4f}")
+        print(
+            f"Combined Domain Classifier Accuracy (should be around 0.5 if GRL works): {domain_accuracy_metric.result():.4f}")
+
+        # You can also save the model
+        # dann_model.save("dann_1d_sequence_model")
+
+    dann_model.save(
+        f"../../models-{locations[0]}-{locations[1]}/website/dann_model.keras")
+    print('DANN model training completed successfully!')
