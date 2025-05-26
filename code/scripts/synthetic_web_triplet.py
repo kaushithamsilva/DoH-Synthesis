@@ -152,6 +152,10 @@ if __name__ == '__main__':
         df, locations, range(1500), 1200)
     input_dim = train_df.shape[1] - 2
 
+    # IMPORTANT!: append the source data from the test set to the training set
+    train_df = pd.concat(
+        [train_df, test_df[test_df['Location'] == locations[0]]])
+
     # load VAE
     vae = tf.keras.models.load_model(f"../../models-{locations[0]}-{locations[1]}/vae/ci_vae/ConvBased/domain_and_class/vae-e1000-mse1-kl0.0001-cl1.0-ldim96-hdim128.keras", custom_objects={
                                      'ConvVAE_BatchNorm': ConvVAE_BatchNorm, 'Sampling': Sampling})
@@ -165,7 +169,7 @@ if __name__ == '__main__':
     model.compile(optimizer='adam', loss=triplet_functions.triplet_loss_func)
 
     # training loop: regenerate every N epochs
-    total_epochs = 1000
+    total_epochs = 500
     regenerate_every = 5
 
     for start in range(0, total_epochs, regenerate_every):
@@ -178,11 +182,11 @@ if __name__ == '__main__':
             A,            # anchor as target
             epochs=start + regenerate_every,
             initial_epoch=start,
-            batch_size=128,
+            batch_size=256,
             shuffle=True
         )
 
     # save
     base.save(
-        f"../../models/website/{locations[0]}-{locations[1]}-synth.keras")
+        f"../../models-{locations[0]}-{locations[1]}/website/{locations[0]}-{locations[1]}-synth.keras")
     print("Offline synthetic triplet training completed.")

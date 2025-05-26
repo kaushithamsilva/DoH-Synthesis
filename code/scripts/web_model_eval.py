@@ -36,7 +36,7 @@ if __name__ == '__main__':
 
     # Load the model with custom objects
     web_model = tf.keras.models.load_model(
-        "../../models-LOC2-LOC3/website/synthetic-LOC2-LOC3-baseCNN-epochs3-train_samples1200-triplet_samples5.keras",
+        f"../../models-LOC2-LOC3/website/{locations[0]}-{locations[1]}-synth.keras",
         custom_objects=custom_objects
     )
 
@@ -45,7 +45,7 @@ if __name__ == '__main__':
 
     print("Evaluating the model...")
     print("Without Embedding:")
-    model = KNeighborsClassifier(n_neighbors=1)
+    model = KNeighborsClassifier(n_neighbors=10)
     classification.evaluate_classification_model(
         X_train, y_train, X_test, y_test, model)
 
