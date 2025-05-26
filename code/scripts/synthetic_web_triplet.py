@@ -172,7 +172,7 @@ if __name__ == '__main__':
     }
 
     base = tf.keras.models.load_model(
-        f"../../models-{locations[0]}-{locations[1]}/website/{locations[0]}-{locations[1]}-synth-base.keras", custom_objects=custom_objects)
+        f"../../models-{locations[0]}-{locations[1]}/website/{locations[0]}-{locations[1]}-synth.keras", custom_objects=custom_objects)
     print("Base model loaded successfully!")
 
     model = triplet_functions.triplet_learning(base, input_dim)
