@@ -140,7 +140,7 @@ if __name__ == '__main__':
     for start in range(0, total_epochs, regenerate_every):
         end = min(start + regenerate_every, total_epochs)
         print(f"Generating synthetic triplets for epochs {start+1}-{end}...")
-        A, P, N = synth_triplets_offline(train_df, vae, num_triplets=1)
+        A, P, N = synth_triplets_offline(train_df, vae)
         # fit for regenerate_every epochs
         model.fit(
             [A, P, N],    # inputs
