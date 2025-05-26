@@ -4,7 +4,22 @@ import init_dataset
 import pandas as pd
 import numpy as np
 import tensorflow as tf
+from sklearn.preprocessing import LabelEncoder
 import model_utils
+
+
+def get_batched_encode(web_model, x, batch_size=2048):
+    """
+    Run web_model on x in smaller chunks to fit memory.
+    Returns concatenated z_sample of shape (len(x), latent_dim).
+    """
+    z_list = []
+    for i in range(0, len(x), batch_size):
+        chunk = x[i:i+batch_size]
+        z_chunk = web_model(chunk)
+        z_list.append(z_chunk)
+    return np.concatenate(z_list, axis=0)
+
 
 if __name__ == '__main__':
     init_gpu.initialize_gpus()
@@ -53,3 +68,25 @@ if __name__ == '__main__':
     model = KNeighborsClassifier(n_neighbors=10)
     classification.evaluate_classification_model(
         web_model(X_train), y_train, web_model(X_test), y_test, model)
+
+    print("Evaluating the model on training on source data...")
+    source_df = df[df['Location'] == locations[0]]
+    target_df = df[df['Location'] == locations[1]]
+    X_train = source_df.iloc[:, 2:].to_numpy().astype(np.float32)
+    y_train = source_df['Website'].to_numpy().astype(np.int32)
+    X_test = target_df.iloc[:, 2:].to_numpy().astype(np.float32)
+    y_test = target_df['Website'].to_numpy().astype(np.int32)
+
+    le = LabelEncoder()
+    y_train = le.fit_transform(y_train)
+    y_test = le.transform(y_test)
+    print("Without Embedding:")
+
+    model = KNeighborsClassifier(n_neighbors=10)
+    classification.evaluate_classification_model(
+        X_train, y_train, X_test, y_test, model)
+    print("With Embedding:")
+    model = KNeighborsClassifier(n_neighbors=10)
+    classification.evaluate_classification_model(
+        get_batched_encode(X_train), y_train, get_batched_encode(X_test), y_test, model)
+    print("Done evaluating the model.")
