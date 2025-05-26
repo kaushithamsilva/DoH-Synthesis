@@ -100,12 +100,11 @@ if __name__ == '__main__':
     input_dim = train_df.shape[1] - 2
 
     # load VAE
-    vae = tf.keras.models.load_model(
-        f"../../models-{locations[0]}-{locations[1]}/vae/...keras",
-        custom_objects={
-            'ConvVAE_BatchNorm': ConvVAE_BatchNorm, 'Sampling': Sampling}
-    )
-    vae.trainable = False
+    vae = tf.keras.models.load_model(f"../../models-{locations[0]}-{locations[1]}/vae/ci_vae/ConvBased/domain_and_class/vae-e1000-mse1-kl0.0001-cl1.0-ldim96-hdim128.keras", custom_objects={
+                                     'ConvVAE_BatchNorm': ConvVAE_BatchNorm, 'Sampling': Sampling})
+    vae.trainable = False  # freeze VAE weights
+    print("VAE loaded successfully!")
+    print(vae.summary())
 
     # build triplet model
     base = triplet_functions.baseCNN(input_dim)
