@@ -149,8 +149,8 @@ if __name__ == "__main__":
     init_gpu.initialize_gpus()
 
     # Hyperparameters
-    batch_size = 32
-    epochs = 10
+    batch_size = 128
+    epochs = 100
     grl_alpha = 1.0  # Strength of the gradient reversal
 
     # --- User's Data Loading and Preprocessing ---
@@ -311,21 +311,7 @@ if __name__ == "__main__":
                   f"Domain Loss: {avg_domain_loss:.4f}, Domain Acc: {domain_acc:.4f}")
 
         print("\nTraining complete.")
-
-        # Example: Check domain classifier performance on source and target separately
-        _, domain_preds_source = dann_model(X_source, training=False)
-        _, domain_preds_target = dann_model(X_target, training=False)
-
-        source_domain_acc = np.mean((domain_preds_source.numpy() > 0.5).astype(
-            int) == 0)  # Expected 0 for source
-        target_domain_acc = np.mean((domain_preds_target.numpy() > 0.5).astype(
-            int) == 1)  # Expected 1 for target
-
-        print(
-            f"\nDomain Classifier Accuracy (Source): {source_domain_acc:.4f}")
-        print(f"Domain Classifier Accuracy (Target): {target_domain_acc:.4f}")
-        print(
-            f"Combined Domain Classifier Accuracy (should be around 0.5 if GRL works): {domain_accuracy_metric.result():.4f}")
-
         # You can also save the model
         # dann_model.save("dann_1d_sequence_model")
+        dann_model.save(
+            f"../../models-{locations[0]}-{locations[1]}/website/dann_1d_sequence_model.keras")
