@@ -143,9 +143,31 @@ if __name__ == '__main__':
         print("Warning: Input data X contains NaN or Inf values! This can lead to unstable training.")
         # Consider adding data cleaning steps here if this warning appears frequently.
 
+    if not np.all(np.isfinite(X)):
+        print("ERROR: Input data X contains NaN or Inf values!")
+        num_nans = np.sum(np.isnan(X))
+        num_infs = np.sum(np.isinf(X))
+        print(
+            f"Number of NaNs in X: {num_nans}, Number of Infs in X: {num_infs}")
+        # Consider handling these, e.g., by imputation or removing problematic rows/columns
+    else:
+        print("Input data X is finite (no NaNs or Infs).")
+
     # Dynamically determine num_classes and num_locations from the data
     num_classes = len(np.unique(y))
     num_locations = len(np.unique(d))
+
+    print(
+        f"Unique y labels: {np.unique(y)}, Max y: {np.max(y)}, Num classes: {num_classes}")
+    assert np.all(y >= 0) and np.all(
+        y < num_classes), "Class labels 'y' are out of range!"
+
+    print(
+        f"Unique d labels: {np.unique(d)}, Max d: {np.max(d)}, Num locations: {num_locations}")
+    assert np.all(d >= 0) and np.all(
+        d < num_locations), "Domain labels 'd' are out of range!"
+    assert set(np.unique(d)).issubset(set(range(num_locations))
+                                      ), f"Domain labels 'd' should be integers from 0 to {num_locations-1}"
 
     grl_lambda = 0.1  # The scaling factor for the reversed gradient
 
@@ -194,7 +216,8 @@ if __name__ == '__main__':
         {'label_classifier': y, 'domain_classifier': d},
         batch_size=128,
         epochs=200,
-        shuffle=True  # Shuffle data before each epoch
+        shuffle=True,  # Shuffle data before each epoch
+        callbacks=[tf.keras.callbacks.TerminateOnNaN()]
     )
 
     # Save the trained model in Keras format
