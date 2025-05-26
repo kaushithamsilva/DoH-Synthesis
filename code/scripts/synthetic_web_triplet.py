@@ -5,10 +5,76 @@ import triplet_functions
 import init_gpu
 import init_dataset
 from train_vae import ConvVAE_BatchNorm, Sampling
-
+from hyperplane import get_hyperplane
 
 import numpy as np
 import tensorflow as tf
+
+
+def cross_location_synthesis(source_df, vae, domain_discriminator, target_location='LOC3', mean=0.1, std=0.1, n_samples=1, ):
+    """
+    Generates synthetic latent space samples by projecting embeddings onto a hyperplane 
+    and perturbing them along the normal direction.
+
+    Args:
+        source_z (np.ndarray): Latent space embeddings of shape (batch_size, latent_dim)
+        source_df (pd.DataFrame): DataFrame containing the original traces with 'Website' and 'Location' columns.
+        w (np.ndarray): Normal vector of the hyperplane (latent_dim,)
+        b (float): Bias term for the hyperplane.
+        mean (float): Mean for Gaussian noise.
+        std (float): Standard deviation for Gaussian noise.
+        n_samples (int): Number of samples to generate per embedding.
+
+    Returns:
+        np.ndarray: Generated latent embeddings of shape (batch_size * n_samples, latent_dim)
+        np.ndarray: Corresponding Website values for each generated sample.
+        np.ndarray: Corresponding Location values for each generated sample.
+    """
+
+    w, b = get_hyperplane(domain_discriminator)
+
+    # Get the latent space embeddings from the source DataFrame
+    source_z = batched_encode(
+        vae, source_df.iloc[:, 2:].to_numpy().astype(np.float32))
+
+    batch_size, latent_dim = source_z.shape
+
+    # normalize the normal vector
+    w = w / np.linalg.norm(w)
+
+    # Generate Gaussian noise (alpha_samples) for all embeddings at once
+    # shape: (batch_size, n_samples, latent_dim)
+    alpha_samples = np.random.normal(
+        mean, std, (batch_size, n_samples, latent_dim))
+
+    # Project all embeddings onto the hyperplane
+    # shape: (batch_size, latent_dim)
+    z_perpendicular = source_z - \
+        (np.sum(source_z * w, axis=-1, keepdims=True) + b) * w
+
+    # Generate n_samples for each embedding by adding perturbation along the normal vector
+    # shape: (batch_size, n_samples, latent_dim)
+    z_samples = z_perpendicular[:, None, :] + alpha_samples * w
+
+    # Reshape the samples
+    # shape: (batch_size * n_samples, latent_dim)
+    z_samples_reshaped = z_samples.numpy().reshape(-1, latent_dim)
+
+    # Create corresponding Website and Location (target) labels
+    # shape: (batch_size * n_samples,)
+    websites = np.repeat(source_df['Website'].values, n_samples)
+    locations = np.repeat(target_location, batch_size * n_samples)
+
+    # decode z_samples to get synthetic features
+    synth_features = batched_decode(
+        vae, z_samples_reshaped)
+
+    synth_df = pd.DataFrame(synth_features, columns=source_df.columns[2:])
+    # Insert Website and Location as the first two columns.
+    synth_df.insert(0, 'Location', locations)
+    synth_df.insert(0, 'Website', websites)
+
+    return synth_df
 
 
 def batched_encode(vae, x, batch_size=256):
@@ -152,9 +218,11 @@ if __name__ == '__main__':
         df, locations, range(1500), 1200)
     input_dim = train_df.shape[1] - 2
 
+    source_test_df = test_df[test_df['Location'] == locations[0]]
+
     # IMPORTANT!: append the source data from the test set to the training set
     train_df = pd.concat(
-        [train_df, test_df[test_df['Location'] == locations[0]]])
+        [train_df, source_test_df])
 
     # load VAE
     vae = tf.keras.models.load_model(f"../../models-{locations[0]}-{locations[1]}/vae/ci_vae/ConvBased/domain_and_class/vae-e1000-mse1-kl0.0001-cl1.0-ldim96-hdim128.keras", custom_objects={
@@ -162,6 +230,22 @@ if __name__ == '__main__':
     vae.trainable = False  # freeze VAE weights
     print("VAE loaded successfully!")
     print(vae.summary())
+
+    domain_discriminator = tf.keras.models.load_model(
+        f'../../models-{locations[0]}-{locations[1]}/vae/ci_vae/ConvBased/domain_and_class/domain-discriminator-e1000.keras')
+    domain_discriminator.trainable = False  # freeze discriminator weights
+    print("Domain Discriminator loaded successfully!")
+    print(domain_discriminator.summary())
+
+    # synthesize new data
+    print("Generating synthetic data...")
+    synth_df = cross_location_synthesis(
+        train_df, vae, domain_discriminator, target_location=locations[1], n_samples=1)
+    print("Synthetic data generated successfully!")
+
+    # append the synthetic data to the training set
+    train_df = pd.concat([train_df, synth_df], ignore_index=True)
+    print(f"New training set size: {len(train_df)}")
 
     # build triplet model
     base = triplet_functions.baseCNN(input_dim)

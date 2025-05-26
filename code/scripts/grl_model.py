@@ -76,90 +76,6 @@ def create_feature_extractor(input_shape):
     features = layers.Dense(256, activation='relu', name="features_output")(x)
     return models.Model(inputs=model_input, outputs=features, name="feature_extractor")
 
-# --- Transformer Encoder Block (Helper Function) ---
-
-
-def transformer_encoder_block(embed_dim, num_heads, ff_dim, rate=0.1):
-    # (sequence_length, embed_dim)
-    inputs = layers.Input(shape=(None, embed_dim))
-
-    # Multi-head Self-Attention
-    attn_output = layers.MultiHeadAttention(
-        num_heads=num_heads, key_dim=embed_dim)(inputs, inputs)
-    attn_output = layers.Dropout(rate)(attn_output)
-    # Add & Norm
-    attn_output = layers.LayerNormalization(epsilon=1e-6)(inputs + attn_output)
-
-    # Feed-Forward Network
-    ffn_output = layers.Dense(ff_dim, activation="relu")(attn_output)
-    ffn_output = layers.Dense(embed_dim)(ffn_output)
-    ffn_output = layers.Dropout(rate)(ffn_output)
-    # Add & Norm
-    return layers.LayerNormalization(epsilon=1e-6)(attn_output + ffn_output)
-
-
-# 2. Define the Feature Extractor Network (Transformer-based)
-def create_transformer_feature_extractor(input_shape,
-                                         embedding_dim: int = 128,  # Dimensionality after initial projection
-                                         num_transformer_blocks: int = 2,
-                                         num_heads: int = 4,
-                                         ff_dim_multiplier: int = 2,
-                                         dropout_rate: float = 0.1,
-                                         final_feature_dim: int = 256):  # Output dimension of the feature extractor
-    """
-    Creates a Transformer-based feature extractor for 1D sequence data.
-
-    Args:
-        input_shape: A tuple (sequence_length, num_features_per_step).
-                     e.g., (100, 1) if you have 100 timesteps, each with 1 feature.
-        embedding_dim: The dimensionality of the input to the transformer blocks.
-                       This is the dimension the initial feature (e.g., 1) is projected to.
-        num_transformer_blocks: Number of stacked Transformer encoder blocks.
-        num_heads: Number of attention heads.
-        ff_dim_multiplier: Multiplier for the feed-forward network's hidden dimension.
-        dropout_rate: Dropout rate.
-        final_feature_dim: The desired dimension of the final extracted feature vector
-                           before it goes to the label and domain classifiers.
-    """
-    sequence_length, num_features_per_step = input_shape
-    model_input = layers.Input(
-        shape=input_shape, name="feature_extractor_input")
-
-    # Initial projection: Project the `num_features_per_step` into `embedding_dim`
-    # This is similar to the first Conv1D layer creating `hidden_dim` channels.
-    x = layers.Dense(embedding_dim)(model_input)
-    # Normalize after projection
-    x = layers.LayerNormalization(epsilon=1e-6)(x)
-
-    # Positional Encoding (Crucial for Transformers on sequence data)
-    # Add positional encoding if your data doesn't inherently encode position
-    # This simple example doesn't include learned positional embeddings or SinusoidalPE
-    # You might consider adding a trainable PositionalEmbedding layer here for more complex sequences.
-    # For now, we'll assume the Dense layer implicitly handles some order if sequence_length is fixed.
-    # A more complete version would include:
-    # positions = tf.range(start=0, limit=sequence_length, delta=1)
-    # positional_embedding = layers.Embedding(input_dim=sequence_length, output_dim=embedding_dim)(positions)
-    # x = x + positional_embedding # Need to handle batching and sequence length correctly
-
-    # Stack Transformer Encoder Blocks
-    for _ in range(num_transformer_blocks):
-        x = transformer_encoder_block(
-            embed_dim=embedding_dim,
-            num_heads=num_heads,
-            ff_dim=embedding_dim * ff_dim_multiplier,
-            rate=dropout_rate
-        )(x)
-
-    # Global pooling to get a fixed-size representation from the sequence
-    x = layers.GlobalAveragePooling1D()(x)
-
-    # Final Dense layer to project to the desired `final_feature_dim`
-    # This is the shared feature representation
-    features = layers.Dense(
-        final_feature_dim, activation='relu', name="features_output")(x)
-    return models.Model(inputs=model_input, outputs=features, name="transformer_feature_extractor")
-
-
 # 3. Define the Label Predictor Network
 
 
@@ -202,7 +118,7 @@ def create_dann_model(input_shape, num_classes, grl_alpha=1.0):
     model_input = layers.Input(shape=input_shape, name="main_input")
 
     # Feature Extractor
-    feature_extractor = create_transformer_feature_extractor(input_shape)
+    feature_extractor = create_feature_extractor(input_shape)
     features = feature_extractor(model_input)
 
     # Label Predictor branch
