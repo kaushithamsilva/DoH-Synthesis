@@ -7,20 +7,25 @@ import init_dataset
 from train_vae import ConvVAE_BatchNorm, Sampling
 
 
-def synth_triplets_offline(df, vae, num_triplets=4):
+import numpy as np
+import tensorflow as tf
+
+
+def synth_triplets_offline(df, vae):
     """
-    Precompute synthetic triplets for the entire df:
-    - anchor: real sample
-    - positive: VAE interpolation of two same-class samples from same location
-    - negative: VAE interpolation of two different-class samples from same location
-    Returns: anchors, positives, negatives (numpy arrays)
+    Precompute synthetic triplets for the entire df in a batched, vectorized way:
+      - anchor: real sample
+      - positive: VAE interpolation of two same-class samples from same location
+      - negative: VAE interpolation of two different-class samples from same location
+
+    Returns three NumPy arrays of shape (N, D): anchors, positives, negatives.
     """
-    feats = df.iloc[:, 2:].to_numpy().astype(np.float32)
+    feats = df.iloc[:, 2:].to_numpy().astype(np.float32)  # (N, D)
     webs = df['Website'].values
     locs = df['Location'].values
-    N = len(df)
+    N, D = feats.shape
 
-    # build pools
+    # Build lookup pools
     by_web = {}
     by_loc_web = {}
     for i, (w, l) in enumerate(zip(webs, locs)):
@@ -32,61 +37,78 @@ def synth_triplets_offline(df, vae, num_triplets=4):
         for w in by_loc_web[l]:
             by_loc_web[l][w] = np.array(by_loc_web[l][w], dtype=np.int32)
 
-    anchors = []
-    positives = []
-    negatives = []
+    # Pre-allocate index arrays
+    p1 = np.zeros(N, dtype=np.int32)
+    p2 = np.zeros(N, dtype=np.int32)
+    n1 = np.zeros(N, dtype=np.int32)
+    n2 = np.zeros(N, dtype=np.int32)
 
+    # 1) Choose all p1,p2,n1,n2 indices
     for i in range(N):
         w0, l0 = webs[i], locs[i]
 
-        # positive selection
+        # Positive: same class & same location if possible
         loc_choices = [l for l, wmap in by_loc_web.items(
         ) if w0 in wmap and len(wmap[w0]) >= 2]
         if loc_choices:
             lp = np.random.choice(loc_choices)
-            p1, p2 = np.random.choice(
-                by_loc_web[lp][w0], size=2, replace=False)
+            pool = by_loc_web[lp][w0]
         else:
-            p1, p2 = np.random.choice(by_web[w0], size=2, replace=False)
+            pool = by_web[w0]
+        p1[i], p2[i] = np.random.choice(pool, size=2, replace=False)
 
-        # negative selection
+        # Negative: different class & same location if possible
         neg_classes = [w for w in by_web if w != w0]
         np.random.shuffle(neg_classes)
+        found = False
         for wn in neg_classes:
-            loc_n_choices = [l for l, wmap in by_loc_web.items(
-            ) if wn in wmap and len(wmap[wn]) >= 2]
+            loc_n_choices = [l for l, wmap in by_loc_web.items()
+                             if wn in wmap and len(wmap[wn]) >= 2]
             if loc_n_choices:
                 ln = np.random.choice(loc_n_choices)
-                n1, n2 = np.random.choice(
-                    by_loc_web[ln][wn], size=2, replace=False)
+                pool_n = by_loc_web[ln][wn]
+                n1[i], n2[i] = np.random.choice(pool_n, size=2, replace=False)
+                found = True
                 break
-        else:
-            pool_all_neg = np.concatenate([by_web[w] for w in neg_classes])
-            n1, n2 = np.random.choice(pool_all_neg, size=2, replace=False)
+        if not found:
+            pool_all = np.concatenate([by_web[w] for w in neg_classes])
+            n1[i], n2[i] = np.random.choice(pool_all, size=2, replace=False)
 
-        # synthesize via VAE
-        xp = np.stack([feats[p1], feats[p2]], axis=0)
-        _, _, zp = vae.encode(xp)
-        z1p, z2p = zp[0], zp[1]
-        xn = np.stack([feats[n1], feats[n2]], axis=0)
-        _, _, zn = vae.encode(xn)
-        z1n, z2n = zn[0], zn[1]
+    # 2) Stack into big batches for VAE encoding
+    # positives: shape (2*N, D)
+    batch_p = np.concatenate([
+        feats[p1].reshape(N, 1, D),
+        feats[p2].reshape(N, 1, D)
+    ], axis=1).reshape(-1, D)
+    # negatives: same
+    batch_n = np.concatenate([
+        feats[n1].reshape(N, 1, D),
+        feats[n2].reshape(N, 1, D)
+    ], axis=1).reshape(-1, D)
 
-        ep = np.random.rand()
-        ezp = (z2p - z1p)*ep + z1p
-        en = np.random.rand()
-        ezn = (z2n - z1n)*en + z1n
+    # 3) One-shot VAE encoding
+    # vae.encode returns (z_mean, z_log_var, z_sample)
+    _, _, zp_all = vae.encode(batch_p)  # shape (2*N, latent_dim)
+    _, _, zn_all = vae.encode(batch_n)
 
-        synth_p = vae.decode(ezp[None, :])[0]
-        synth_n = vae.decode(ezn[None, :])[0]
+    latent_dim = zp_all.shape[-1]
+    zp_all = zp_all.reshape(N, 2, latent_dim)
+    zn_all = zn_all.reshape(N, 2, latent_dim)
 
-        anchors.append(feats[i])
-        positives.append(synth_p)
-        negatives.append(synth_n)
+    # 4) Vectorized interpolation
+    eps_p = np.random.rand(N, 1)
+    eps_n = np.random.rand(N, 1)
+    zp_interp = zp_all[:, 0, :] + (zp_all[:, 1, :] - zp_all[:, 0, :]) * eps_p
+    zn_interp = zn_all[:, 0, :] + (zn_all[:, 1, :] - zn_all[:, 0, :]) * eps_n
 
-    return (np.stack(anchors),
-            np.stack(positives),
-            np.stack(negatives))
+    # 5) One-shot VAE decoding
+    synth_p = vae.decode(zp_interp)  # shape (N, D)
+    synth_n = vae.decode(zn_interp)
+
+    # 6) Anchors are just the original features
+    anchors = feats
+
+    return anchors, synth_p, synth_n
 
 
 if __name__ == '__main__':
