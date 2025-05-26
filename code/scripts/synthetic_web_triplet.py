@@ -84,18 +84,18 @@ def make_synth_triplet_dataset(df, vae, batch_size=128):
                 P.append(synth_p)
                 N.append(synth_n)
 
-            yield ([np.stack(A, axis=0),
+            yield ((np.stack(A, axis=0),
                     np.stack(P, axis=0),
-                    np.stack(N, axis=0)],
+                    np.stack(N, axis=0)),
                    np.stack(A, axis=0))
 
     D = feats.shape[1]  # feature dimension
     output_sig = (
-        [  # a list of three inputs
+        (  # a list of three inputs
             tf.TensorSpec((None, D), tf.float32),
             tf.TensorSpec((None, D), tf.float32),
             tf.TensorSpec((None, D), tf.float32),
-        ],
+        ),
         tf.TensorSpec((None, D), tf.float32)
     )
     # output signature for the dataset
