@@ -118,7 +118,7 @@ def get_triplets_website_encoder(df, num_triplet_samples):
 if __name__ == '__main__':
     init_gpu.initialize_gpus()
 
-    locations = ['LOC1', 'LOC2']
+    locations = ['LOC2', 'LOC3']
 
     print("Loading Dataset...")
     # load the dataset
@@ -141,7 +141,7 @@ if __name__ == '__main__':
     # get train-val set from the train set, 50 for validation set
     # training information
 
-    num_triplet_samples = 5
+    num_triplet_samples = 10
     print("Generating Triplets...")
     train_anchor_labels, train_anchors, train_positives, train_negatives = get_triplets_website_encoder_optimized(
         train_df, num_triplet_samples)
@@ -161,33 +161,33 @@ if __name__ == '__main__':
 
     # Training Triplet Model
     baseNetwork = 'baseCNN'
-    triplet_epochs = 200
+    triplet_epochs = 1000
 
-    strategy = tf.distribute.MirroredStrategy()
-    print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    # strategy = tf.distribute.MirroredStrategy()
+    # print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
 
-    with strategy.scope():
-        # offline random triplet mining
-        # initialize base instance
-        base_instance = getattr(triplet_functions, baseNetwork)(length)
+    # with strategy.scope():
+    # offline random triplet mining
+    # initialize base instance
+    base_instance = getattr(triplet_functions, baseNetwork)(length)
 
-        # load existing model, continue training
-        # base_instance = tf.keras.models.load_model(
-        #     f'../../models/website/{locations[0]}-{locations[1]}-{baseNetwork}-epochs200-train_samples{num_train_samples}-triplet_samples5.keras')
-        # base_instance.trainable = True
+    # load existing model, continue training
+    # base_instance = tf.keras.models.load_model(
+    #     f'../../models/website/{locations[0]}-{locations[1]}-{baseNetwork}-epochs200-train_samples{num_train_samples}-triplet_samples5.keras')
+    # base_instance.trainable = True
 
-        model = triplet_functions.triplet_learning(base_instance, length)
-        model.compile(optimizer='adam',
-                      loss=triplet_functions.triplet_loss_func)
+    model = triplet_functions.triplet_learning(base_instance, length)
+    model.compile(optimizer='adam',
+                  loss=triplet_functions.triplet_loss_func)
 
-        # Train the model with validation data and EarlyStopping
-        history = model.fit(
-            [train_anchors, train_positives, train_negatives],
-            [train_anchors],
-            epochs=triplet_epochs,
-            batch_size=128,
-            shuffle=True,
-        )
+    # Train the model with validation data and EarlyStopping
+    history = model.fit(
+        [train_anchors, train_positives, train_negatives],
+        [train_anchors],
+        epochs=triplet_epochs,
+        batch_size=128,
+        shuffle=True,
+    )
 
     print("Saving model...")
 
