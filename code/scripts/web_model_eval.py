@@ -88,5 +88,5 @@ if __name__ == '__main__':
     print("With Embedding:")
     model = KNeighborsClassifier(n_neighbors=10)
     classification.evaluate_classification_model(
-        get_batched_encode(X_train), y_train, get_batched_encode(X_test), y_test, model)
+        get_batched_encode(web_model, X_train), y_train, get_batched_encode(web_model, X_test), y_test, model)
     print("Done evaluating the model.")
