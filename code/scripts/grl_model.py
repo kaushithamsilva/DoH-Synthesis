@@ -86,12 +86,13 @@ def build_grl_model(input_dim, num_classes, num_locations, grl_lambda=1.0):
     # Final domain classification layer.
     # IMPORTANT: Reverted to outputting logits (no activation) for numerical stability
     # with SparseCategoricalCrossentropy(from_logits=True).
-    domain_logits = layers.Dense(num_locations, name='domain_classifier')(x)
+    domain_preds = layers.Dense(
+        num_locations, activation='softmax', name='domain_classifier')(x)
 
     # Define the Keras Model with shared input and two distinct outputs.
     return keras.Model(
         inputs=inputs,
-        outputs=[label_preds, domain_logits],
+        outputs=[label_preds, domain_preds],
         name='feature_extractor_grl'
     )
 
@@ -169,7 +170,7 @@ if __name__ == '__main__':
     assert set(np.unique(d)).issubset(set(range(num_locations))
                                       ), f"Domain labels 'd' should be integers from 0 to {num_locations-1}"
 
-    grl_lambda = 0.1  # The scaling factor for the reversed gradient
+    grl_lambda = 0.01  # The scaling factor for the reversed gradient
 
     # Build the GRL model
     model = build_grl_model(input_dim, num_classes, num_locations, grl_lambda)
@@ -183,14 +184,8 @@ if __name__ == '__main__':
     model.compile(
         optimizer=opt,
         loss={
-            # For label classification, use SparseCategoricalCrossentropy.
-            # `from_logits=False` because the `label_classifier` dense layer uses `softmax` activation.
             'label_classifier': tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
-            # For domain classification, use SparseCategoricalCrossentropy.
-            # IMPORTANT: Changed `from_logits=False` back to `from_logits=True` because the
-            # `domain_classifier` now outputs raw logits (no activation). This is the most
-            # numerically stable way to compute cross-entropy.
-            'domain_classifier': tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+            'domain_classifier': tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
         },
         loss_weights={
             # Weight for the label classification loss
@@ -214,7 +209,7 @@ if __name__ == '__main__':
     model.fit(
         X,
         {'label_classifier': y, 'domain_classifier': d},
-        batch_size=128,
+        batch_size=64,
         epochs=200,
         shuffle=True,  # Shuffle data before each epoch
         callbacks=[tf.keras.callbacks.TerminateOnNaN()]
