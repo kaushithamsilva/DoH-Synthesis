@@ -199,8 +199,8 @@ if __name__ == "__main__":
     # Prepare Target Data
     target_df = train_df[train_df['Location'] == locations[1]]
     X_target = target_df[feature_columns].values.astype(np.float32)
-    # For unsupervised DA, target labels (y_target) are not used for label prediction loss
-    # Domain label for target: 1
+    y_target = target_df['Website'].values.astype(
+        np.int32)  # Labels are integer
     d_target = np.ones((len(X_target), 1), dtype=np.float32)
 
     # Reshape X_source and X_target for Conv1D input (num_samples, sequence_length, num_features)
@@ -242,7 +242,7 @@ if __name__ == "__main__":
     source_dataset = tf.data.Dataset.from_tensor_slices(
         (X_source, y_source, d_source)).shuffle(buffer_size=len(X_source)).batch(batch_size)
     target_dataset = tf.data.Dataset.from_tensor_slices(
-        (X_target, d_target)).shuffle(buffer_size=len(X_target)).batch(batch_size)
+        (X_target, y_target, d_target)).shuffle(buffer_size=len(X_target)).batch(batch_size)
 
     source_iter = iter(source_dataset.repeat())
     target_iter = iter(target_dataset.repeat())
@@ -259,14 +259,16 @@ if __name__ == "__main__":
     @tf.function
     def train_step(source_batch, target_batch):
         X_s, y_s, d_s = source_batch
-        X_t, d_t = target_batch
+        X_t, y_t, d_t = target_batch
 
         X_combined_domain = tf.concat([X_s, X_t], axis=0)
         d_combined = tf.concat([d_s, d_t], axis=0)
 
         with tf.GradientTape() as tape:
             label_preds_s, _ = dann_model(X_s, training=True)
-            label_loss = label_loss_fn(y_s, label_preds_s)
+            label_preds_t, _ = dann_model(X_t, training=True)
+            label_loss = label_loss_fn(y_s, label_preds_s) + \
+                label_loss_fn(y_t, label_preds_t)
 
             _, domain_preds_combined = dann_model(
                 X_combined_domain, training=True)
@@ -278,7 +280,14 @@ if __name__ == "__main__":
         optimizer.apply_gradients(
             zip(gradients, dann_model.trainable_variables))
 
-        label_accuracy_metric.update_state(y_s, label_preds_s)
+        # Update metrics
+        # combine y_s and y_t for label accuracy
+        label_preds_combined = tf.concat(
+            [label_preds_s, label_preds_t], axis=0)
+        label_accuracy_metric.update_state(
+            tf.concat([y_s, y_t], axis=0), label_preds_combined)
+
+        # label_accuracy_metric.update_state(y_s, label_preds_s)
         domain_accuracy_metric.update_state(d_combined, domain_preds_combined)
 
         return label_loss, domain_loss
