@@ -155,7 +155,7 @@ if __name__ == '__main__':
     # Configure the Adam optimizer with a learning rate and gradient clipping
     # Reduced learning rate and added clipvalue for better stability
     opt = tf.keras.optimizers.Adam(
-        learning_rate=5e-5, clipnorm=1.0, clipvalue=0.5)
+        learning_rate=5e-5, clipvalue=0.5)
 
     # Compile the model with respective loss functions, loss weights, and metrics
     model.compile(
