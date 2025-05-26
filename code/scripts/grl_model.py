@@ -164,7 +164,7 @@ if __name__ == '__main__':
             'domain_classifier': grl_lambda  # Match GRL lambda for consistency
         },
         metrics={
-            'label_classifier': ['accuracy', 'top_5_accuracy'],
+            'label_classifier': ['accuracy'],
             'domain_classifier': ['accuracy']
         }
     )
