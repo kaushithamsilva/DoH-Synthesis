@@ -286,8 +286,8 @@ if __name__ == "__main__":
         print("Not enough samples to form a batch. Please check your data size and batch_size.")
     else:
         for epoch in range(epochs):
-            label_accuracy_metric.reset_states()
-            domain_accuracy_metric.reset_states()
+            label_accuracy_metric.reset_state()
+            domain_accuracy_metric.reset_state()
             total_label_loss = 0.0
             total_domain_loss = 0.0
 
