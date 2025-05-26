@@ -53,6 +53,23 @@ if __name__ == '__main__':
     import pandas as pd
     import numpy as np
 
+    init_gpu.initialize_gpus()
+    locations = ['LOC2', 'LOC3']
+    df = pd.read_csv(
+        f"../../dataset/processed/{locations[0]}-{locations[1]}-scaled-balanced.csv")
+    train_df, test_df, _, _ = init_dataset.get_sample(
+        df, locations, range(1500), 1200)
+    input_dim = train_df.shape[1] - 2
+
+    # IMPORTANT!: append the source data from the test set to the training set
+    train_df = pd.concat(
+        [train_df, test_df[test_df['Location'] == locations[0]]])
+
+    X = train_df.iloc[:, 2:].to_numpy().astype(np.float32)
+    y = train_df['Website'].to_numpy().astype(int)
+    d = train_df['Location'].apply(
+        lambda x: 0 if x == locations[0] else 1).to_numpy().astype(int)
+
     # Example usage
     input_dim = 128  # e.g., feature vector length
     num_classes = 1500
@@ -76,23 +93,6 @@ if __name__ == '__main__':
         }
     )
     model.summary()
-
-    init_gpu.initialize_gpus()
-    locations = ['LOC2', 'LOC3']
-    df = pd.read_csv(
-        f"../../dataset/processed/{locations[0]}-{locations[1]}-scaled-balanced.csv")
-    train_df, test_df, _, _ = init_dataset.get_sample(
-        df, locations, range(1500), 1200)
-    input_dim = train_df.shape[1] - 2
-
-    # IMPORTANT!: append the source data from the test set to the training set
-    train_df = pd.concat(
-        [train_df, test_df[test_df['Location'] == locations[0]]])
-
-    X = train_df.iloc[:, 2:].to_numpy().astype(np.float32)
-    y = train_df['Website'].to_numpy().astype(int)
-    d = train_df['Location'].apply(
-        lambda x: 0 if x == locations[0] else 1).to_numpy().astype(int)
 
     model.fit(
         X,
