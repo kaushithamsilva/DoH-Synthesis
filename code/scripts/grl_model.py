@@ -4,36 +4,35 @@ from tensorflow.keras import layers
 import triplet_functions  # Assuming this module provides the baseCNN
 
 
-class GradientReversalLayer(keras.layers.Layer):
+class GradientReversalLayer(layers.Layer):
     """
-    Implements the Gradient Reversal Layer (GRL).
-    During the forward pass, it acts as an identity function.
-    During the backward pass, it reverses the sign of the gradients
-    and scales them by `lambda_`.
+    Gradient Reversal Layer for domain adaptation.
+    This layer reverses the gradient during backpropagation.
     """
 
-    def __init__(self, lambda_):
-        super().__init__()
-        self.lambda_ = lambda_
+    def __init__(self, grl_lambda=1.0, **kwargs):
+        super(GradientReversalLayer, self).__init__(**kwargs)
+        self.lambda_ = grl_lambda
 
-    def call(self, x):
-        """
-        Applies the custom gradient function to the input `x`.
-        """
-        @tf.custom_gradient
-        def reverse_gradient(x):
-            """
-            Defines the forward and backward pass for the GRL.
-            """
-            def grad(dy):
-                """
-                The gradient function for the backward pass.
-                It reverses the sign of the incoming gradient `dy`
-                and scales it by `self.lambda_`.
-                """
-                return -self.lambda_ * dy
-            return x, grad  # Forward pass returns x, backward pass uses grad
-        return reverse_gradient(x)
+    def call(self, inputs):
+        # During the forward pass, we just return the inputs
+        return inputs
+
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+    def get_config(self):
+        config = super(GradientReversalLayer, self).get_config()
+        config.update({"lambda_": self.lambda_})
+        return config
+
+    def compute_gradients(self, loss, variables):
+        grads = super().compute_gradients(loss, variables)
+        # Reverse the gradients
+        for grad in grads:
+            if grad is not None:
+                grad *= -self.lambda_
+        return grads
 
 
 def build_grl_model(input_dim, num_classes, num_locations, grl_lambda=1.0):
@@ -61,31 +60,20 @@ def build_grl_model(input_dim, num_classes, num_locations, grl_lambda=1.0):
     # The output of baseCNN is expected to be 2D (batch_size, feature_dim).
     features = triplet_functions.baseCNN(input_dim)(x)
 
-    # Add BatchNormalization after baseCNN to stabilize the features.
-    # This is crucial for preventing NaN values by normalizing activations
-    # and making the training more robust.
-    normalized_features = layers.BatchNormalization(
-        name='normalized_features')(features)
-
     # 4) Label classifier head: Predicts the class labels.
-    # It takes the normalized features and outputs probabilities using softmax.
     label_preds = layers.Dense(
         num_classes, activation='softmax', name='label_classifier'
-    )(normalized_features)  # Use normalized_features
+    )(features)  # Use normalized_features
 
     # 5) Domain classifier via GRL: Predicts the source domain/location.
-    # The GRL is applied to the normalized features.
-    # It reverses the gradient flow for the domain classifier,
     # encouraging the feature extractor to learn domain-invariant features.
-    x_grl = GradientReversalLayer(lambda_=grl_lambda)(
-        normalized_features)  # GRL on normalized_features
+    x_grl = GradientReversalLayer(grl_lambda=grl_lambda)(
+        features)  # GRL on normalized_features
 
     # A small dense layer before the final domain classification output.
     x = layers.Dense(64, activation='relu')(x_grl)
 
     # Final domain classification layer.
-    # IMPORTANT: Reverted to outputting logits (no activation) for numerical stability
-    # with SparseCategoricalCrossentropy(from_logits=True).
     domain_preds = layers.Dense(
         num_locations, activation='softmax', name='domain_classifier')(x)
 
@@ -120,10 +108,8 @@ if __name__ == '__main__':
 
     # Determine the input dimension based on the training data (excluding 'Website' and 'Location' columns)
     input_dim = train_df.shape[1] - 2
+    print(f"Input dimension: {input_dim}")
 
-    # IMPORTANT!: Append the source data from the test set to the training set.
-    # This is a common practice in domain adaptation where the source domain
-    # data is often augmented or used more extensively.
     train_df = pd.concat(
         [train_df, test_df[test_df['Location'] == locations[0]]])
 
