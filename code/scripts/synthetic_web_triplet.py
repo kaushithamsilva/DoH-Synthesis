@@ -165,6 +165,16 @@ if __name__ == '__main__':
 
     # build triplet model
     base = triplet_functions.baseCNN(input_dim)
+
+    # only for continuing training...
+    custom_objects = {
+        'ResidualBlock': triplet_functions.ResidualBlock
+    }
+
+    base = tf.keras.models.load_model(
+        f"../../models-{locations[0]}-{locations[1]}/website/{locations[0]}-{locations[1]}-synth-base.keras", custom_objects=custom_objects)
+    print("Base model loaded successfully!")
+
     model = triplet_functions.triplet_learning(base, input_dim)
     model.compile(optimizer='adam', loss=triplet_functions.triplet_loss_func)
 
