@@ -169,7 +169,7 @@ if __name__ == '__main__':
     model.compile(optimizer='adam', loss=triplet_functions.triplet_loss_func)
 
     # training loop: regenerate every N epochs
-    total_epochs = 500
+    total_epochs = 50
     regenerate_every = 5
 
     for start in range(0, total_epochs, regenerate_every):
