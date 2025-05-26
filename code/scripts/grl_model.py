@@ -153,10 +153,10 @@ if __name__ == '__main__':
         optimizer=opt,
         loss={
             'label_classifier': tf.keras.losses.SparseCategoricalCrossentropy(
-                from_logits=False, label_smoothing=0.01  # Add label smoothing
+                from_logits=False
             ),
             'domain_classifier': tf.keras.losses.SparseCategoricalCrossentropy(
-                from_logits=False, label_smoothing=0.01  # Add label smoothing
+                from_logits=False
             ),
         },
         loss_weights={
