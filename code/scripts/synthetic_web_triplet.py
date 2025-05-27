@@ -249,6 +249,8 @@ if __name__ == '__main__':
 
     # build triplet model
     base = triplet_functions.baseTransformer(input_dim)
+    print("Base model created successfully!")
+    print(base.summary())
 
     # only for continuing training...
     custom_objects = {

@@ -209,9 +209,9 @@ class TransformerEncoderBlock(tf.keras.layers.Layer):
 
 def baseTransformer(input_dim: int,
                     output_embedding_dim: int = 128,  # Corresponds to n_neurons in your CNN
-                    num_transformer_blocks: int = 2,
-                    num_heads: int = 4,
-                    ff_dim_multiplier: int = 2,  # Multiplier for feed-forward dimension
+                    num_transformer_blocks: int = 1,
+                    num_heads: int = 2,
+                    ff_dim_multiplier: int = 1,  # Multiplier for feed-forward dimension
                     dropout_rate: float = 0.1):
     """
     Creates a simple encoder-type Transformer base network for triplet learning.
