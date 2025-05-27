@@ -46,12 +46,13 @@ if __name__ == '__main__':
 
     # Create a dictionary of custom objects
     custom_objects = {
-        'ResidualBlock': ResidualBlock
+        'ResidualBlock': ResidualBlock,
+        "TransformerEncoderBlock": triplet_functions.TransformerEncoderBlock
     }
 
     # Load the model with custom objects
     web_model = tf.keras.models.load_model(
-        f"../../models-LOC2-LOC3/website/{locations[0]}-{locations[1]}-baseCNN-epochs500-train_samples1200-triplet_samples5-domain_invariant-l0.1.keras",
+        f"../../models-LOC2-LOC3/website/{locations[0]}-{locations[1]}-synth-transformer.keras",
         custom_objects=custom_objects
     )
 

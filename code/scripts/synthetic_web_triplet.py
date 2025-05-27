@@ -264,7 +264,7 @@ if __name__ == '__main__':
                   y_pred: triplet_functions.triplet_loss_func(y_true, y_pred, alpha=0.4))
 
     # training loop: regenerate every N epochs
-    total_epochs = 500
+    total_epochs = 5
     regenerate_every = 1
 
     for start in range(0, total_epochs, regenerate_every):
@@ -277,7 +277,7 @@ if __name__ == '__main__':
             A,            # anchor as target
             epochs=start + regenerate_every,
             initial_epoch=start,
-            batch_size=256,
+            batch_size=128,
             shuffle=True
         )
 
