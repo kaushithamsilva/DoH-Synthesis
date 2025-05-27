@@ -174,35 +174,29 @@ def baseBiLSTM(length: int):
     return base_network
 
 
-def transformer_encoder_block(embed_dim, num_heads, ff_dim, rate=0.1):
-    """
-    Creates a single Transformer encoder block.
+class TransformerEncoderBlock(keras.layers.Layer):
+    def __init__(self, embed_dim, num_heads, ff_dim, rate=0.1):
+        super().__init__()
+        self.attn = keras.layers.MultiHeadAttention(
+            num_heads=num_heads, key_dim=embed_dim)
+        self.dropout1 = keras.layers.Dropout(rate)
+        self.norm1 = keras.layers.LayerNormalization(epsilon=1e-6)
 
-    Args:
-        embed_dim: The dimensionality of the input and output embeddings.
-        num_heads: The number of attention heads.
-        ff_dim: The dimensionality of the feed-forward network.
-        rate: Dropout rate.
+        self.ffn = keras.Sequential([
+            keras.layers.Dense(ff_dim, activation="relu"),
+            keras.layers.Dense(embed_dim),
+        ])
+        self.dropout2 = keras.layers.Dropout(rate)
+        self.norm2 = keras.layers.LayerNormalization(epsilon=1e-6)
 
-    Returns:
-        A Keras layer representing one Transformer encoder block.
-    """
-    inputs = keras.layers.Input(shape=(None, embed_dim)
-                                )  # (sequence_length, embed_dim)
+    def call(self, inputs, training=False):
+        attn_output = self.attn(inputs, inputs)
+        attn_output = self.dropout1(attn_output, training=training)
+        out1 = self.norm1(inputs + attn_output)
 
-    # Multi-head Self-Attention
-    attn_output = keras.layers.MultiHeadAttention(
-        num_heads=num_heads, key_dim=embed_dim)(inputs, inputs)
-    attn_output = keras.layers.Dropout(rate)(attn_output)
-    attn_output = keras.layers.LayerNormalization(
-        epsilon=1e-6)(inputs + attn_output)  # Add & Norm
-
-    # Feed-Forward Network
-    ffn_output = keras.layers.Dense(ff_dim, activation="relu")(attn_output)
-    ffn_output = keras.layers.Dense(embed_dim)(ffn_output)
-    ffn_output = keras.layers.Dropout(rate)(ffn_output)
-    # Add & Norm
-    return keras.layers.LayerNormalization(epsilon=1e-6)(attn_output + ffn_output)
+        ffn_output = self.ffn(out1)
+        ffn_output = self.dropout2(ffn_output, training=training)
+        return self.norm2(out1 + ffn_output)
 
 
 def baseTransformer(input_dim: int,
@@ -245,7 +239,7 @@ def baseTransformer(input_dim: int,
 
     # Stack Transformer Encoder Blocks
     for _ in range(num_transformer_blocks):
-        x = transformer_encoder_block(
+        x = TransformerEncoderBlock(
             embed_dim, num_heads, embed_dim * ff_dim_multiplier, dropout_rate)(x)
 
     # Global pooling to get a fixed-size representation

@@ -248,7 +248,7 @@ if __name__ == '__main__':
     print(f"New training set size: {len(train_df)}")
 
     # build triplet model
-    base = triplet_functions.baseCNN(input_dim)
+    base = triplet_functions.baseTransformer(input_dim)
 
     # only for continuing training...
     custom_objects = {
@@ -265,7 +265,7 @@ if __name__ == '__main__':
 
     # training loop: regenerate every N epochs
     total_epochs = 500
-    regenerate_every = 25
+    regenerate_every = 1
 
     for start in range(0, total_epochs, regenerate_every):
         end = min(start + regenerate_every, total_epochs)
@@ -283,5 +283,5 @@ if __name__ == '__main__':
 
     # save
     base.save(
-        f"../../models-{locations[0]}-{locations[1]}/website/{locations[0]}-{locations[1]}-synth.keras")
+        f"../../models-{locations[0]}-{locations[1]}/website/{locations[0]}-{locations[1]}-synth-transformer.keras")
     print("Offline synthetic triplet training completed.")
