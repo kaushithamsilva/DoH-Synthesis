@@ -255,17 +255,17 @@ if __name__ == '__main__':
         'ResidualBlock': triplet_functions.ResidualBlock
     }
 
-    base = tf.keras.models.load_model(
-        f"../../models-{locations[0]}-{locations[1]}/website/{locations[0]}-{locations[1]}-synth.keras", custom_objects=custom_objects)
-    print("Base model loaded successfully!")
+    # base = tf.keras.models.load_model(
+    #     f"../../models-{locations[0]}-{locations[1]}/website/{locations[0]}-{locations[1]}-synth.keras", custom_objects=custom_objects)
+    # print("Base model loaded successfully!")
 
     model = triplet_functions.triplet_learning(base, input_dim)
     model.compile(optimizer='adam', loss=lambda y_true,
                   y_pred: triplet_functions.triplet_loss_func(y_true, y_pred, alpha=0.4))
 
     # training loop: regenerate every N epochs
-    total_epochs = 1000
-    regenerate_every = 20
+    total_epochs = 500
+    regenerate_every = 25
 
     for start in range(0, total_epochs, regenerate_every):
         end = min(start + regenerate_every, total_epochs)
