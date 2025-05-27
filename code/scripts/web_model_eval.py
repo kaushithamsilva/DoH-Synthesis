@@ -45,15 +45,16 @@ if __name__ == '__main__':
         df, locations, range(1500), num_train_samples)
 
     # Create a dictionary of custom objects
-    custom_objects = {
-        'ResidualBlock': ResidualBlock,
-        "TransformerEncoderBlock": triplet_functions.TransformerEncoderBlock
-    }
+    # custom_objects = {
+    #     'ResidualBlock': ResidualBlock,
+    #     "TransformerEncoderBlock": triplet_functions.TransformerEncoderBlock
+    # }
 
     # Load the model with custom objects
     web_model = tf.keras.models.load_model(
         f"../../models-LOC2-LOC3/website/{locations[0]}-{locations[1]}-synth-transformer.keras",
-        custom_objects=custom_objects
+        custom_objects={
+            'TransformerEncoderBlock': triplet_functions.TransformerEncoderBlock, }
     )
 
     X_train, y_train, X_test, y_test, le = classification.preprocess_data_for_web_classification(
