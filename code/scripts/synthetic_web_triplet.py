@@ -248,16 +248,16 @@ if __name__ == '__main__':
     print(f"New training set size: {len(train_df)}")
 
     # build triplet model
-    base = triplet_functions.baseTransformer(input_dim)
+    base = triplet_functions.baseCNN(input_dim)
 
     # only for continuing training...
     custom_objects = {
         'ResidualBlock': triplet_functions.ResidualBlock
     }
 
-    # base = tf.keras.models.load_model(
-    #     f"../../models-{locations[0]}-{locations[1]}/website/{locations[0]}-{locations[1]}-synth.keras", custom_objects=custom_objects)
-    # print("Base model loaded successfully!")
+    base = tf.keras.models.load_model(
+        f"../../models-{locations[0]}-{locations[1]}/website/{locations[0]}-{locations[1]}-synth.keras", custom_objects=custom_objects)
+    print("Base model loaded successfully!")
 
     model = triplet_functions.triplet_learning(base, input_dim)
     model.compile(optimizer='adam', loss=lambda y_true,
@@ -283,5 +283,5 @@ if __name__ == '__main__':
 
     # save
     base.save(
-        f"../../models-{locations[0]}-{locations[1]}/website/{locations[0]}-{locations[1]}-synth-transformer.keras")
+        f"../../models-{locations[0]}-{locations[1]}/website/{locations[0]}-{locations[1]}-synth.keras")
     print("Offline synthetic triplet training completed.")
