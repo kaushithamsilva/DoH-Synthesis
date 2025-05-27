@@ -174,29 +174,37 @@ def baseBiLSTM(length: int):
     return base_network
 
 
-class TransformerEncoderBlock(keras.layers.Layer):
-    def __init__(self, embed_dim, num_heads, ff_dim, rate=0.1):
-        super().__init__()
-        self.attn = keras.layers.MultiHeadAttention(
+class TransformerEncoderBlock(tf.keras.layers.Layer):
+    def __init__(self, embed_dim, num_heads, ff_dim, rate=0.1, **kwargs):
+        super(TransformerEncoderBlock, self).__init__(**kwargs)
+        self.att = tf.keras.layers.MultiHeadAttention(
             num_heads=num_heads, key_dim=embed_dim)
-        self.dropout1 = keras.layers.Dropout(rate)
-        self.norm1 = keras.layers.LayerNormalization(epsilon=1e-6)
-
-        self.ffn = keras.Sequential([
-            keras.layers.Dense(ff_dim, activation="relu"),
-            keras.layers.Dense(embed_dim),
+        self.ffn = tf.keras.Sequential([
+            tf.keras.layers.Dense(ff_dim, activation='relu'),
+            tf.keras.layers.Dense(embed_dim),
         ])
-        self.dropout2 = keras.layers.Dropout(rate)
-        self.norm2 = keras.layers.LayerNormalization(epsilon=1e-6)
+        self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+        self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+        self.dropout1 = tf.keras.layers.Dropout(rate)
+        self.dropout2 = tf.keras.layers.Dropout(rate)
 
     def call(self, inputs, training=False):
-        attn_output = self.attn(inputs, inputs)
+        attn_output = self.att(inputs, inputs)
         attn_output = self.dropout1(attn_output, training=training)
-        out1 = self.norm1(inputs + attn_output)
-
+        out1 = self.layernorm1(inputs + attn_output)
         ffn_output = self.ffn(out1)
         ffn_output = self.dropout2(ffn_output, training=training)
-        return self.norm2(out1 + ffn_output)
+        return self.layernorm2(out1 + ffn_output)
+
+    def get_config(self):
+        config = super(TransformerEncoderBlock, self).get_config()
+        config.update({
+            'embed_dim': self.att.key_dim,
+            'num_heads': self.att.num_heads,
+            'ff_dim': self.ffn.layers[0].units,
+            'rate': self.dropout1.rate,
+        })
+        return config
 
 
 def baseTransformer(input_dim: int,
