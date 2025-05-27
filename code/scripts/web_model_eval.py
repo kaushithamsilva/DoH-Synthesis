@@ -45,16 +45,15 @@ if __name__ == '__main__':
         df, locations, range(1500), num_train_samples)
 
     # Create a dictionary of custom objects
-    # custom_objects = {
-    #     'ResidualBlock': ResidualBlock,
-    #     "TransformerEncoderBlock": triplet_functions.TransformerEncoderBlock
-    # }
+    custom_objects = {
+        'ResidualBlock': ResidualBlock,
+        "TransformerEncoderBlock": triplet_functions.TransformerEncoderBlock
+    }
 
     # Load the model with custom objects
     web_model = tf.keras.models.load_model(
         f"../../models-LOC2-LOC3/website/{locations[0]}-{locations[1]}-synth-transformer.keras",
-        custom_objects={
-            'TransformerEncoderBlock': triplet_functions.TransformerEncoderBlock, }
+        custom_objects=custom_objects
     )
 
     X_train, y_train, X_test, y_test, le = classification.preprocess_data_for_web_classification(
@@ -69,7 +68,7 @@ if __name__ == '__main__':
     print("With Embedding:")
     model = KNeighborsClassifier(n_neighbors=10)
     classification.evaluate_classification_model(
-        web_model(X_train), y_train, web_model(X_test), y_test, model)
+        get_batched_encode(web_model, X_train), y_train, get_batched_encode(web_model, X_test), y_test, model)
 
     print("Evaluating the model on training on source data...")
     source_df = df[df['Location'] == locations[0]]
