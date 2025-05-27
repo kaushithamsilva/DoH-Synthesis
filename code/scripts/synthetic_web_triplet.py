@@ -240,7 +240,7 @@ if __name__ == '__main__':
     # synthesize new data
     print("Generating synthetic data...")
     synth_df = cross_location_synthesis(
-        train_df, vae, domain_discriminator, target_location=locations[1], n_samples=1)
+        source_test_df, vae, domain_discriminator, target_location=locations[1], n_samples=1)
     print("Synthetic data generated successfully!")
 
     # append the synthetic data to the training set
@@ -248,24 +248,24 @@ if __name__ == '__main__':
     print(f"New training set size: {len(train_df)}")
 
     # build triplet model
-    base = triplet_functions.baseCNN(input_dim)
+    base = triplet_functions.baseTransformer(input_dim)
 
     # only for continuing training...
     custom_objects = {
         'ResidualBlock': triplet_functions.ResidualBlock
     }
 
-    base = tf.keras.models.load_model(
-        f"../../models-{locations[0]}-{locations[1]}/website/{locations[0]}-{locations[1]}-synth.keras", custom_objects=custom_objects)
-    print("Base model loaded successfully!")
+    # base = tf.keras.models.load_model(
+    #     f"../../models-{locations[0]}-{locations[1]}/website/{locations[0]}-{locations[1]}-synth.keras", custom_objects=custom_objects)
+    # print("Base model loaded successfully!")
 
     model = triplet_functions.triplet_learning(base, input_dim)
     model.compile(optimizer='adam', loss=lambda y_true,
                   y_pred: triplet_functions.triplet_loss_func(y_true, y_pred, alpha=0.4))
 
     # training loop: regenerate every N epochs
-    total_epochs = 50
-    regenerate_every = 5
+    total_epochs = 1000
+    regenerate_every = 20
 
     for start in range(0, total_epochs, regenerate_every):
         end = min(start + regenerate_every, total_epochs)
@@ -283,5 +283,5 @@ if __name__ == '__main__':
 
     # save
     base.save(
-        f"../../models-{locations[0]}-{locations[1]}/website/{locations[0]}-{locations[1]}-synth.keras")
+        f"../../models-{locations[0]}-{locations[1]}/website/{locations[0]}-{locations[1]}-synth-transformer.keras")
     print("Offline synthetic triplet training completed.")
