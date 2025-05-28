@@ -18,7 +18,9 @@ def evaluate_classification_model(X_train, y_train, X_test, y_test, model) -> tu
     f1_score = metrics.f1_score(
         y_test, y_pred, average='macro', zero_division=0
     )
+    # classification report
     print(f"Accuracy: {accuracy * 100.0:.2f}, F1 Score: {f1_score * 100.0: .2f}, Precision: {precision * 100.0: .2f}, Recall: {recall * 100.0: .2f}")
+    print(metrics.classification_report(y_test, y_pred))
     return accuracy, precision, recall, f1_score, confusion_matrix
 
 
@@ -73,9 +75,11 @@ def show_confusion_matrix_heatmap(cm, label_encoder, title, isAnnonated=True, fi
     # Plot the confusion matrix
     plt.figure(figsize=figsize)  # Adjust figure size as needed
     if isAnnonated:
-        sns.heatmap(cm_normalized, cmap="viridis", cbar=True, square=True, xticklabels=label_encoder.classes_, yticklabels=label_encoder.classes_)
+        sns.heatmap(cm_normalized, cmap="viridis", cbar=True, square=True,
+                    xticklabels=label_encoder.classes_, yticklabels=label_encoder.classes_)
     else:
-        sns.heatmap(cm_normalized, cmap="viridis", cbar=True, square=True, xticklabels=50, yticklabels=50)
+        sns.heatmap(cm_normalized, cmap="viridis", cbar=True,
+                    square=True, xticklabels=50, yticklabels=50)
     plt.title('Confusion Matrix (Normalized)')
     plt.xlabel('Predicted Labels')
     plt.ylabel('True Labels')
