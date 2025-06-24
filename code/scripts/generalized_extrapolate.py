@@ -409,14 +409,17 @@ if __name__ == "__main__":
         "resolver": "cloudflare",
         "platform": "desktop"
     }
-    # Specify the website_id you want to use
-    # <-- Replace with your desired website_id
-    website_id_to_use = random.sample(test_website_ids, 1)[0]
 
-    run_location_synthesis_experiment(
-        vae_model, discriminators, attribute_names,
-        test_df, source_features_1, "leuven", experiment_params,
-        website_id=website_id_to_use
-    )
+    for _ in range(3):
+        # Randomly select a website ID from the test set
+        website_id = random.sample(test_website_ids, 1)[0]
+        print(
+            f"Running location synthesis experiment for website_id: {website_id}")
+
+        run_location_synthesis_experiment(
+            vae_model, discriminators, attribute_names,
+            test_df, source_features_1, "leuven", experiment_params,
+            website_id=website_id
+        )
 
     print("\n--- All Location Synthesis Experiments Complete ---")
