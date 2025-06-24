@@ -333,7 +333,7 @@ def run_location_synthesis_experiment(
         target_sequences = select_samples_with_specific_features(
             test_df, target_features, website_id, num_samples=1
         )
-        plot_comparison_with_actual(target_sequences[0].numpy(),
+        plot_comparison_with_actual(target_sequences[0],
                                     generated_sequences[0].numpy(),
                                     generated_sequences[-1].numpy(),
                                     title=f"Synthesis: {source_features['location']} → {target_location} (website_id={website_id})",
@@ -343,7 +343,7 @@ def run_location_synthesis_experiment(
     except ValueError:
         print(
             f"Could not find actual {target_location} traffic with same features and website_id={website_id} for comparison.")
-        plot_comparison_with_actual(initial_sequences[0].numpy(),
+        plot_comparison_with_actual(initial_sequences[0],
                                     generated_sequences[0].numpy(),
                                     generated_sequences[-1].numpy(),
                                     title=f"Synthesis: {source_features['location']} → {target_location} (website_id={website_id})",
