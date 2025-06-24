@@ -478,7 +478,7 @@ if __name__ == "__main__":
     # Experiment parameters
     experiment_params = {
         'num_steps': 30,
-        'step_size': 0.2,
+        'step_size': 0.5,
         'pull_strength': 0.015,
         'target_threshold': 0.5,  # Stop when target location score > 0.6
         'fixed_threshold': 0.1,   # Stop if any fixed feature score < 0.4
