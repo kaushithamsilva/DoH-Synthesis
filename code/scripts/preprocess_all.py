@@ -55,7 +55,7 @@ def main():
 
     # 2) Load every JSON across all folders
     for folder, meta in folder_metadata.items():
-        for path in glob.glob(f"../dataset/{folder}/*.json"):
+        for path in glob.glob(f"../../dataset/{folder}/*.json"):
             with open(path) as f:
                 jd = json.load(f)
             all_rows.extend(json_to_rows(jd, meta))
