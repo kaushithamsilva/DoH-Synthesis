@@ -428,7 +428,8 @@ if __name__ == "__main__":
 
     print(f"Available attributes: {attribute_names}")
     print(f"Available discriminators: {list(discriminators.keys())}")
-    print(f"Total test websites: {len(test_website_ids)}")
+    print(
+        f"Test Website IDs: {test_website_ids[:10]}... (total {len(test_website_ids)})")
 
     experiment_params = {
         'num_steps': 100,
