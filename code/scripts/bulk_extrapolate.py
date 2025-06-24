@@ -44,32 +44,33 @@ FEATURE_ATTRIBUTES = {
 }
 
 
-def select_samples_with_specific_features(df, feature_criteria, website_id, num_samples=1):
+def get_all_samples_for_website(df, feature_criteria, website_id):
     """
-    Selects network traffic samples that match the specified feature criteria from a DataFrame.
-    If website_id is provided, selects only from that website.
+    Gets ALL samples for a specific website that match the feature criteria.
+    Returns all matching sequences, not just a random sample.
     """
-    if website_id is not None:
-        df = df[df["Website"] == website_id].reset_index(drop=True)
+    # Filter by website first
+    website_df = df[df["Website"] == website_id].reset_index(drop=True)
+
+    if len(website_df) == 0:
+        raise ValueError(f"No samples found for website_id: {website_id}")
 
     # Build mask for feature criteria
-    mask = np.ones(len(df), dtype=bool)
+    mask = np.ones(len(website_df), dtype=bool)
     for feature, value in feature_criteria.items():
-        mask &= (df[feature.capitalize()] == value.capitalize())
-    filtered_df = df[mask]
+        mask &= (website_df[feature.capitalize()] == value.capitalize())
 
-    if len(filtered_df) < num_samples:
+    filtered_df = website_df[mask]
+
+    if len(filtered_df) == 0:
         raise ValueError(
-            f"Could not find {num_samples} samples with features: {feature_criteria} and website_id: {website_id}")
+            f"No samples found for website_id: {website_id} with features: {feature_criteria}")
 
-    # Extract features and attributes
+    # Extract all matching sequences
     feature_cols = [str(i) for i in range(128)]
+    all_sequences = filtered_df[feature_cols].astype("float32").values
 
-    # randomly sample from filtered_df
-    selected_df = filtered_df.sample(n=num_samples, random_state=None)
-    selected_sequences = selected_df[feature_cols].astype("float32").values
-
-    return selected_sequences
+    return all_sequences
 
 
 def synthesize_single_sample(vae_model, discriminators, original_sequence, source_features, target_location, experiment_params):
@@ -144,31 +145,10 @@ def synthesize_single_sample(vae_model, discriminators, original_sequence, sourc
     return final_sequence[0].numpy()
 
 
-def collect_distribution_samples(test_df, feature_criteria, website_ids, num_samples_per_website=1):
+def plot_kde_distributions_for_website(source_sequences, target_sequences, synthesized_sequences,
+                                       source_features, target_location, website_id, output_dir):
     """
-    Collect samples from multiple websites with given feature criteria.
-    Returns a list of sequences.
-    """
-    all_sequences = []
-    successful_websites = []
-
-    for website_id in website_ids:
-        try:
-            sequences = select_samples_with_specific_features(
-                test_df, feature_criteria, website_id, num_samples_per_website
-            )
-            all_sequences.extend(sequences)
-            successful_websites.append(website_id)
-        except ValueError:
-            continue  # Skip if no samples found for this website
-
-    return all_sequences, successful_websites
-
-
-def plot_kde_distributions(source_sequences, target_sequences, synthesized_sequences,
-                           source_features, target_location, output_dir, filename):
-    """
-    Plot KDE distributions comparing source, actual target, and synthesized sequences.
+    Plot KDE distributions comparing source, actual target, and synthesized sequences for a single website.
     Creates subplots for different statistical measures.
     """
     # Calculate statistical measures for each sequence type
@@ -182,7 +162,8 @@ def plot_kde_distributions(source_sequences, target_sequences, synthesized_seque
         return stats
 
     source_stats = calculate_stats(source_sequences)
-    target_stats = calculate_stats(target_sequences)
+    target_stats = calculate_stats(target_sequences) if len(
+        target_sequences) > 0 else None
     synth_stats = calculate_stats(synthesized_sequences)
 
     # Create subplots
@@ -190,33 +171,56 @@ def plot_kde_distributions(source_sequences, target_sequences, synthesized_seque
     axes = axes.flatten()
 
     stat_names = ['mean', 'std', 'max', 'sum']
-    colors = ['blue', 'green', 'red']
-    labels = [f"Source ({source_features['location']})",
-              f"Actual Target ({target_location})", f"Synthesized ({target_location})"]
 
     for i, stat in enumerate(stat_names):
         ax = axes[i]
 
-        # Plot KDE for each distribution
-        data_sets = [source_stats[stat], target_stats[stat], synth_stats[stat]]
+        # Plot source distribution
+        source_data = source_stats[stat]
+        if len(source_data) > 1:
+            try:
+                kde = gaussian_kde(source_data)
+                x_min, x_max = min(source_data), max(source_data)
+                x_range = np.linspace(x_min - 0.1 * (x_max - x_min),
+                                      x_max + 0.1 * (x_max - x_min), 100)
+                ax.plot(x_range, kde(x_range), color='blue',
+                        label=f"Source ({source_features['location']})", alpha=0.7, linewidth=2)
+                ax.fill_between(x_range, kde(x_range), alpha=0.3, color='blue')
+            except:
+                ax.hist(source_data, bins=min(15, len(source_data)//2 + 1), alpha=0.3,
+                        color='blue', label=f"Source ({source_features['location']})", density=True)
 
-        for j, (data, color, label) in enumerate(zip(data_sets, colors, labels)):
-            if len(data) > 1:  # Need at least 2 points for KDE
+        # Plot synthesized distribution
+        synth_data = synth_stats[stat]
+        if len(synth_data) > 1:
+            try:
+                kde = gaussian_kde(synth_data)
+                x_min, x_max = min(synth_data), max(synth_data)
+                x_range = np.linspace(x_min - 0.1 * (x_max - x_min),
+                                      x_max + 0.1 * (x_max - x_min), 100)
+                ax.plot(x_range, kde(x_range), color='red',
+                        label=f"Synthesized ({target_location})", alpha=0.7, linewidth=2)
+                ax.fill_between(x_range, kde(x_range), alpha=0.3, color='red')
+            except:
+                ax.hist(synth_data, bins=min(15, len(synth_data)//2 + 1), alpha=0.3,
+                        color='red', label=f"Synthesized ({target_location})", density=True)
+
+        # Plot target distribution (if available)
+        if target_stats and len(target_stats[stat]) > 0:
+            target_data = target_stats[stat]
+            if len(target_data) > 1:
                 try:
-                    kde = gaussian_kde(data)
-                    x_range = np.linspace(min(data) - np.std(data),
-                                          max(data) + np.std(data), 100)
-                    ax.plot(x_range, kde(x_range), color=color,
-                            label=label, alpha=0.7, linewidth=2)
+                    kde = gaussian_kde(target_data)
+                    x_min, x_max = min(target_data), max(target_data)
+                    x_range = np.linspace(x_min - 0.1 * (x_max - x_min),
+                                          x_max + 0.1 * (x_max - x_min), 100)
+                    ax.plot(x_range, kde(x_range), color='green',
+                            label=f"Actual Target ({target_location})", alpha=0.7, linewidth=2)
                     ax.fill_between(x_range, kde(x_range),
-                                    alpha=0.3, color=color)
+                                    alpha=0.3, color='green')
                 except:
-                    # Fallback to histogram if KDE fails
-                    ax.hist(data, bins=10, alpha=0.3, color=color,
-                            label=label, density=True)
-            else:
-                # Single point - just mark it
-                ax.axvline(x=data[0], color=color, label=label, linewidth=2)
+                    ax.hist(target_data, bins=min(15, len(target_data)//2 + 1), alpha=0.3,
+                            color='green', label=f"Actual Target ({target_location})", density=True)
 
         ax.set_title(f'Distribution of Sequence {stat.capitalize()}')
         ax.set_xlabel(f'Sequence {stat.capitalize()}')
@@ -224,14 +228,94 @@ def plot_kde_distributions(source_sequences, target_sequences, synthesized_seque
         ax.legend()
         ax.grid(True, alpha=0.3)
 
-    plt.suptitle(f'Traffic Distribution Analysis: {source_features["location"]} → {target_location}',
+    plt.suptitle(f'Website {website_id}: Traffic Distribution Analysis\n{source_features["location"]} → {target_location}',
                  fontsize=16)
     plt.tight_layout(rect=[0, 0.03, 1, 0.95])
 
+    filename = f"website_{website_id}_kde_distributions.png"
     full_path = os.path.join(output_dir, filename)
     plt.savefig(full_path, dpi=150, bbox_inches='tight')
     print(f"Saved KDE distribution plot to {full_path}")
     plt.close()
+
+
+def process_single_website(vae_model, discriminators, test_df, website_id,
+                           source_features, target_location, experiment_params, output_dir):
+    """
+    Process a single website: get all source samples, synthesize all of them, 
+    get all target samples, and create KDE comparison plots.
+    """
+    print(f"\n--- Processing Website {website_id} ---")
+
+    try:
+        # Get ALL source samples for this website
+        print(f"Collecting all source samples for website {website_id}...")
+        source_sequences = get_all_samples_for_website(
+            test_df, source_features, website_id)
+        print(f"Found {len(source_sequences)} source samples")
+
+        # Get ALL target samples for this website (if available)
+        target_features = source_features.copy()
+        target_features['location'] = target_location
+        try:
+            target_sequences = get_all_samples_for_website(
+                test_df, target_features, website_id)
+            print(f"Found {len(target_sequences)} target samples")
+        except ValueError:
+            print(
+                f"No target samples found for website {website_id} with target features")
+            target_sequences = []
+
+        # Synthesize ALL source samples
+        print(f"Synthesizing {len(source_sequences)} samples...")
+        synthesized_sequences = []
+
+        for i, source_seq in enumerate(source_sequences):
+            try:
+                synth_seq = synthesize_single_sample(
+                    vae_model, discriminators, source_seq, source_features,
+                    target_location, experiment_params
+                )
+
+                if synth_seq is not None:
+                    synthesized_sequences.append(synth_seq)
+                    if (i + 1) % 10 == 0:  # Progress update every 10 samples
+                        print(
+                            f"  Synthesized {i + 1}/{len(source_sequences)} samples")
+                else:
+                    print(f"  Failed to synthesize sample {i + 1}")
+
+            except Exception as e:
+                print(f"  Error synthesizing sample {i + 1}: {e}")
+                continue
+
+        print(
+            f"Successfully synthesized {len(synthesized_sequences)}/{len(source_sequences)} samples")
+
+        # Create KDE plots comparing the three distributions
+        if len(synthesized_sequences) > 0:
+            plot_kde_distributions_for_website(
+                source_sequences, target_sequences, synthesized_sequences,
+                source_features, target_location, website_id, output_dir
+            )
+
+            # Save summary statistics for this website
+            summary_stats = {
+                'website_id': website_id,
+                'num_source_samples': len(source_sequences),
+                'num_target_samples': len(target_sequences),
+                'num_synthesized_samples': len(synthesized_sequences),
+                'synthesis_success_rate': len(synthesized_sequences) / len(source_sequences) * 100
+            }
+
+            return summary_stats
+        else:
+            print(f"No synthesized samples generated for website {website_id}")
+            return None
+
+    except Exception as e:
+        print(f"Error processing website {website_id}: {e}")
+        return None
 
 
 def run_bulk_synthesis_experiment(vae_model, discriminators, attribute_names, test_df,
@@ -239,6 +323,7 @@ def run_bulk_synthesis_experiment(vae_model, discriminators, attribute_names, te
                                   experiment_params, num_websites=None):
     """
     Run bulk synthesis experiment for multiple websites.
+    For each website, process ALL samples and create KDE comparisons.
     """
     print(
         f"\n--- Starting Bulk Synthesis: {source_features['location']} → {target_location} ---")
@@ -246,96 +331,61 @@ def run_bulk_synthesis_experiment(vae_model, discriminators, attribute_names, te
     # Select websites to process
     if num_websites is None:
         selected_websites = test_website_ids
+        print(f"Processing ALL {len(selected_websites)} websites...")
     else:
         selected_websites = random.sample(
             test_website_ids, min(num_websites, len(test_website_ids)))
-
-    print(f"Processing {len(selected_websites)} websites...")
+        print(
+            f"Processing randomly selected {len(selected_websites)} websites...")
 
     experiment_name = f"bulk_{source_features['location']}_to_{target_location}"
     experiment_output_dir = os.path.join(BASE_OUTPUT_DIR, experiment_name)
     os.makedirs(experiment_output_dir, exist_ok=True)
 
-    # Collect source sequences
-    print("Collecting source sequences...")
-    source_sequences, successful_source_websites = collect_distribution_samples(
-        test_df, source_features, selected_websites, num_samples_per_website=1
-    )
+    # Process each website
+    all_website_stats = []
+    successful_websites = 0
 
-    # Collect actual target sequences
-    print("Collecting actual target sequences...")
-    target_features = source_features.copy()
-    target_features['location'] = target_location
-    target_sequences, successful_target_websites = collect_distribution_samples(
-        test_df, target_features, selected_websites, num_samples_per_website=1
-    )
+    for i, website_id in enumerate(selected_websites):
+        print(
+            f"\n=== Processing website {i+1}/{len(selected_websites)}: {website_id} ===")
 
-    # Generate synthesized sequences
-    print("Generating synthesized sequences...")
-    synthesized_sequences = []
-    successful_synth_websites = []
-
-    for website_id in successful_source_websites:
-        try:
-            # Get source sequence for this website
-            source_seq = select_samples_with_specific_features(
-                test_df, source_features, website_id, num_samples=1
-            )[0]
-
-            # Synthesize
-            synth_seq = synthesize_single_sample(
-                vae_model, discriminators, source_seq, source_features,
-                target_location, experiment_params
-            )
-
-            if synth_seq is not None:
-                synthesized_sequences.append(synth_seq)
-                successful_synth_websites.append(website_id)
-
-        except Exception as e:
-            print(f"Failed to synthesize for website {website_id}: {e}")
-            continue
-
-    # Report statistics
-    print(f"Successfully collected {len(source_sequences)} source sequences")
-    print(f"Successfully collected {len(target_sequences)} target sequences")
-    print(f"Successfully synthesized {len(synthesized_sequences)} sequences")
-
-    # Create KDE distribution plots
-    if len(source_sequences) > 0 and len(target_sequences) > 0 and len(synthesized_sequences) > 0:
-        plot_kde_distributions(
-            source_sequences, target_sequences, synthesized_sequences,
-            source_features, target_location, experiment_output_dir,
-            f"{experiment_name}_kde_distributions.png"
+        website_stats = process_single_website(
+            vae_model, discriminators, test_df, website_id,
+            source_features, target_location, experiment_params, experiment_output_dir
         )
-    else:
-        print("Insufficient data for KDE plotting")
 
-    # Save summary statistics
-    summary_stats = {
-        'source_websites': successful_source_websites,
-        'target_websites': successful_target_websites,
-        'synthesized_websites': successful_synth_websites,
-        'num_source_sequences': len(source_sequences),
-        'num_target_sequences': len(target_sequences),
-        'num_synthesized_sequences': len(synthesized_sequences)
-    }
+        if website_stats:
+            all_website_stats.append(website_stats)
+            successful_websites += 1
 
-    summary_df = pd.DataFrame([summary_stats])
-    summary_path = os.path.join(
-        experiment_output_dir, f"{experiment_name}_summary.csv")
-    summary_df.to_csv(summary_path, index=False)
-    print(f"Saved summary statistics to {summary_path}")
+        print(
+            f"Completed website {website_id} ({i+1}/{len(selected_websites)})")
+
+    # Save overall summary
+    if all_website_stats:
+        summary_df = pd.DataFrame(all_website_stats)
+        summary_path = os.path.join(
+            experiment_output_dir, f"{experiment_name}_summary.csv")
+        summary_df.to_csv(summary_path, index=False)
+
+        # Print overall statistics
+        print(f"\n--- Experiment Summary ---")
+        print(f"Total websites processed: {len(selected_websites)}")
+        print(f"Successful websites: {successful_websites}")
+        print(
+            f"Average samples per website: {summary_df['num_source_samples'].mean():.1f}")
+        print(
+            f"Average synthesis success rate: {summary_df['synthesis_success_rate'].mean():.1f}%")
+        print(
+            f"Total synthesized samples: {summary_df['num_synthesized_samples'].sum()}")
+
+        print(f"Summary saved to: {summary_path}")
 
     print(
         f"--- Bulk Synthesis Complete: {source_features['location']} → {target_location} ---")
 
-    return {
-        'source_sequences': source_sequences,
-        'target_sequences': target_sequences,
-        'synthesized_sequences': synthesized_sequences,
-        'summary_stats': summary_stats
-    }
+    return all_website_stats
 
 
 def load_models_and_data():
@@ -382,7 +432,7 @@ if __name__ == "__main__":
 
     experiment_params = {
         'num_steps': 100,
-        'step_size': 0.1,
+        'step_size': 0.2,
         'pull_strength': 0.015,
         'target_threshold': 5.0,
         'fixed_threshold': 0.2,
@@ -398,7 +448,7 @@ if __name__ == "__main__":
     # Run bulk synthesis experiments
     results_all = run_bulk_synthesis_experiment(
         vae_model, discriminators, attribute_names, test_df, test_website_ids,
-        source_features_1, "leuven", experiment_params, num_websites=50
+        source_features_1, "leuven", experiment_params, num_websites=10
     )
 
     print("\n--- All Bulk Synthesis Experiments Complete ---")
