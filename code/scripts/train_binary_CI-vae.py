@@ -148,7 +148,7 @@ def train_ci_vae(vae_model, discriminators, train_ds, val_ds, optimizer, epochs,
 # --- Main ---
 if __name__ == '__main__':
     # Load data
-    DATASET_PATH = "../../dataset/preprocessed/preprocessed_dataset.csv"
+    DATASET_PATH = "../../dataset/processed/preprocessed_dataset.csv"
     train_ds, test_ds, train_ids, test_ids, attr_names = get_train_test_dataset(
         DATASET_PATH,
         num_train=1200,
