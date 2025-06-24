@@ -400,7 +400,7 @@ if __name__ == "__main__":
         'step_size': 0.1,
         'pull_strength': 0.015,
         'target_threshold': 5.0,
-        'fixed_threshold': 1.0,
+        'fixed_threshold': 0.2,
     }
 
     source_features_1 = {
