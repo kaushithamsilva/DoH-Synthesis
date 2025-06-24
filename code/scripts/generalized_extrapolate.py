@@ -30,7 +30,7 @@ DEFAULT_PULL_BETA = 0.02
 
 def load_models_and_data():
     # Load VAE
-    vae = model_utils.load_model(SAVE_PATH, VAE_MODEL_NAME)
+    vae = model_utils.load_model(CHECKPOINT_PATH, VAE_MODEL_NAME)
     if vae is None:
         raise FileNotFoundError('VAE model not found')
 
