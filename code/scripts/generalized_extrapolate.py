@@ -69,7 +69,7 @@ def select_samples_with_specific_features(df, website_ids, attr_names_list, feat
     # Build mask for feature criteria
     mask = np.ones(len(df), dtype=bool)
     for feature, value in feature_criteria.items():
-        mask &= (df[feature.capitalize()] == value)
+        mask &= (df[feature.capitalize()] == value.capitalize())
     filtered_df = df[mask]
 
     if len(filtered_df) < num_samples:
