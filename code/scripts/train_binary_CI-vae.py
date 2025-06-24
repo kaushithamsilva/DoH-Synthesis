@@ -158,7 +158,7 @@ if __name__ == '__main__':
     )
 
     # Initialize VAE
-    input_dim = (128,)
+    input_dim = 128
     latent_dim = 32
     hidden_dim = 64
     vae_model = VAE(input_dim, latent_dim, hidden_dim)
