@@ -396,11 +396,9 @@ if __name__ == "__main__":
     }
 
     # Run bulk synthesis experiments
-
-    # Option 2: Process random subset of websites
-    results_subset = run_bulk_synthesis_experiment(
+    results_all = run_bulk_synthesis_experiment(
         vae_model, discriminators, attribute_names, test_df, test_website_ids,
-        source_features_1, "singapore", experiment_params, num_websites=50
+        source_features_1, "leuven", experiment_params, num_websites=50
     )
 
     print("\n--- All Bulk Synthesis Experiments Complete ---")
