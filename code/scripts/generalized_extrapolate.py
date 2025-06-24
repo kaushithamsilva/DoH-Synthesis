@@ -477,11 +477,11 @@ if __name__ == "__main__":
 
     # Experiment parameters
     experiment_params = {
-        'num_steps': 30,
+        'num_steps': 100,
         'step_size': 0.1,
         'pull_strength': 0.015,
-        'target_threshold': 0.5,  # Stop when target location score > 0.6
-        'fixed_threshold': 0.1,   # Stop if any fixed feature score < 0.4
+        'target_threshold': 5.0,  # Stop when target location score > 0.6
+        'fixed_threshold': 1.0,   # Stop if any fixed feature score < 0.4
     }
 
     # Example 1: Lausanne → Leuven
@@ -496,28 +496,28 @@ if __name__ == "__main__":
         vae_model, discriminators, attribute_names, test_ds,
         test_website_ids, df_original, source_features_1, "leuven", experiment_params)
 
-    # Example 2: Lausanne → Singapore
-    source_features_2 = {
-        "location": "lausanne",
-        "client": "firefox",
-        "resolver": "google",
-        "platform": "desktop"
-    }
+    # # Example 2: Lausanne → Singapore
+    # source_features_2 = {
+    #     "location": "lausanne",
+    #     "client": "firefox",
+    #     "resolver": "google",
+    #     "platform": "desktop"
+    # }
 
-    run_location_synthesis_experiment(
-        vae_model, discriminators, attribute_names, test_ds,
-        test_website_ids, df_original, source_features_2, "singapore", experiment_params)
+    # run_location_synthesis_experiment(
+    #     vae_model, discriminators, attribute_names, test_ds,
+    #     test_website_ids, df_original, source_features_2, "singapore", experiment_params)
 
-    # Example 3: Singapore → Leuven
-    source_features_3 = {
-        "location": "singapore",
-        "client": "cloudflare",
-        "resolver": "google",
-        "platform": "raspberry_pi"
-    }
+    # # Example 3: Singapore → Leuven
+    # source_features_3 = {
+    #     "location": "singapore",
+    #     "client": "cloudflare",
+    #     "resolver": "google",
+    #     "platform": "raspberry_pi"
+    # }
 
-    run_location_synthesis_experiment(
-        vae_model, discriminators, attribute_names, test_ds,
-        test_website_ids, df_original, source_features_3, "leuven", experiment_params)
+    # run_location_synthesis_experiment(
+    #     vae_model, discriminators, attribute_names, test_ds,
+    #     test_website_ids, df_original, source_features_3, "leuven", experiment_params)
 
     print("\n--- All Location Synthesis Experiments Complete ---")
