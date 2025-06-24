@@ -52,7 +52,7 @@ def get_attribute_index(attribute_name, attr_names_list):
             f"Attribute '{attribute_name}' not found in attribute list. Available: {attr_names_list}")
 
 
-def select_samples_with_specific_features(df, attr_names_list, feature_criteria, num_samples=1, website_id=None):
+def select_samples_with_specific_features(df, feature_criteria, website_id, num_samples=1):
     """
     Selects network traffic samples that match the specified feature criteria from a DataFrame.
     If website_id is provided, selects only from that website.
@@ -72,25 +72,12 @@ def select_samples_with_specific_features(df, attr_names_list, feature_criteria,
 
     # Extract features and attributes
     feature_cols = [str(i) for i in range(128)]
-    meta_cols = ["Location", "Resolver", "Client", "Platform"]
 
-    selected_sequences = filtered_df[feature_cols].astype(
-        "float32").values[:num_samples]
-    selected_website_ids = filtered_df["Website"].values[:num_samples]
+    # randomly sample from filtered_df
+    selected_df = filtered_df.sample(n=num_samples, random_state=None)
+    selected_sequences = selected_df[feature_cols].astype("float32").values
 
-    # Build binary attribute array
-    attribute_names = []
-    y_parts = []
-    for col in meta_cols:
-        uniques = df[col].unique()
-        for val in uniques:
-            name = f"{col.lower()}_{val.lower().replace(' ', '_')}"
-            attribute_names.append(name)
-            y_parts.append((filtered_df[col] == val).astype(
-                "float32").values[:num_samples])
-    selected_attributes_full = np.stack(y_parts, axis=1)
-
-    return selected_sequences, selected_attributes_full, selected_website_ids
+    return selected_sequences
 
 
 def plot_traffic_sequences(sequences, titles=None, main_title="", filename="", output_dir=""):
@@ -184,11 +171,11 @@ def run_location_synthesis_experiment(
     source_features,
     target_location,
     experiment_params,
-    website_id=None
+    website_id
 ):
     """
     Synthesizes traffic from source location to target location while keeping other features fixed.
-    If website_id is provided, uses that website for both source and target.
+    Use website_id for both source and target.
     """
     print(
         f"\n--- Starting Location Synthesis: {source_features['location']} → {target_location} (website_id={website_id}) ---")
@@ -201,25 +188,18 @@ def run_location_synthesis_experiment(
     print(
         f"Selecting traffic sample with source features: {source_features} and website_id: {website_id}...")
     try:
-        initial_sequences, _, website_ids = select_samples_with_specific_features(
+        initial_sequences = select_samples_with_specific_features(
             test_df,
-            attribute_names,
             source_features,
+            website_id,
             num_samples=1,
-            website_id=website_id
         )
 
         original_sequence = tf.expand_dims(initial_sequences[0], axis=0)
-        website_id_used = website_ids[0]
-
-        # Get actual traffic sequence from test_df
-        actual_row = test_df[test_df['Website'] == website_id_used]
-        packet_cols = [str(i) for i in range(SEQUENCE_LENGTH)]
-        actual_sequence = actual_row.iloc[0][packet_cols].values.astype(float)
 
         plot_traffic_sequences([original_sequence[0]],
                                titles=[
-                                   f"Source Traffic (Website {website_id_used})"],
+                                   f"Source Traffic (Website {website_id})"],
                                main_title=f"Source: {source_features}",
                                filename="source_traffic.png",
                                output_dir=experiment_output_dir)
@@ -350,33 +330,28 @@ def run_location_synthesis_experiment(
     target_features['location'] = target_location
 
     try:
-        target_sequences, _, target_website_ids = select_samples_with_specific_features(
-            test_df, attribute_names, target_features, num_samples=1, website_id=website_id_used
+        target_sequences = select_samples_with_specific_features(
+            test_df, target_features, website_id, num_samples=1
         )
-        target_actual_row = test_df[test_df['Website']
-                                    == target_website_ids[0]]
-        target_actual_sequence = target_actual_row.iloc[0][packet_cols].values.astype(
-            float)
-
-        plot_comparison_with_actual(target_actual_sequence,
+        plot_comparison_with_actual(target_sequences[0].numpy(),
                                     generated_sequences[0].numpy(),
                                     generated_sequences[-1].numpy(),
-                                    title=f"Synthesis: {source_features['location']} → {target_location} (website_id={website_id_used})",
+                                    title=f"Synthesis: {source_features['location']} → {target_location} (website_id={website_id})",
                                     filename=f"{experiment_name}_comparison.png",
                                     output_dir=experiment_output_dir)
 
     except ValueError:
         print(
-            f"Could not find actual {target_location} traffic with same features and website_id={website_id_used} for comparison.")
-        plot_comparison_with_actual(actual_sequence,
+            f"Could not find actual {target_location} traffic with same features and website_id={website_id} for comparison.")
+        plot_comparison_with_actual(initial_sequences[0].numpy(),
                                     generated_sequences[0].numpy(),
                                     generated_sequences[-1].numpy(),
-                                    title=f"Synthesis: {source_features['location']} → {target_location} (website_id={website_id_used})",
+                                    title=f"Synthesis: {source_features['location']} → {target_location} (website_id={website_id})",
                                     filename=f"{experiment_name}_comparison.png",
                                     output_dir=experiment_output_dir)
 
     print(
-        f"--- Location Synthesis Complete: {source_features['location']} → {target_location} (website_id={website_id_used}) ---")
+        f"--- Location Synthesis Complete: {source_features['location']} → {target_location} (website_id={website_id}) ---")
 
 
 def load_models_and_data():
