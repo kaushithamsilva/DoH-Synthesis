@@ -42,7 +42,7 @@ def load_models_and_data():
     discs = {}
     for attr in attribute_names:
         disc = model_utils.load_model(
-            DISCRIMINATOR_PATH, f'{attr}_e{CHECKPOINT_EPOCH}')
+            DISCRIMINATOR_PATH, f'{attr}_e{CHECKPOINT_EPOCH}_disc')
         if disc:
             discs[attr] = disc
     return vae, discs, attribute_names, test_ds, test_webs
