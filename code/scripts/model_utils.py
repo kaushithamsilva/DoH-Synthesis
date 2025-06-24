@@ -1,6 +1,6 @@
 import os
 import tensorflow as tf
-from train_VAE import VAE, Sampling
+from train_vae import VAE, Sampling
 
 
 def save_model(model, file_path, file_name):
