@@ -60,9 +60,14 @@ def get_train_test_dataset(
     # --- 2) Split by Website ID ---
     all_websites = df["Website"].unique().tolist()
     random.seed(random_seed)
-    sampled = random.sample(all_websites, num_train + num_test)
-    train_websites = sampled[:num_train]
-    test_websites = sampled[num_train:]
+    # sampled = random.sample(all_websites, num_train + num_test)
+
+    # train websites contain 1200 from the 1500 and the rest
+    # test websites contain the remaining 300 from the 1500
+    train_websites = random.sample(
+        range(1500), num_train) + list(range(1500, 6500))
+    # these 300 will be used for
+    test_websites = list(set(range(0, 1500)) - set(train_websites))
 
     train_df = df[df["Website"].isin(train_websites)].reset_index(drop=True)
     test_df = df[df["Website"].isin(test_websites)].reset_index(drop=True)
