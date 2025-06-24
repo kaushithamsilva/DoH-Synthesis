@@ -23,7 +23,21 @@ os.makedirs(BASE_OUTPUT_DIR, exist_ok=True)
 
 # Model parameters (should match training configuration)
 SEQUENCE_LENGTH = 128  # Assuming 128 time steps for network traffic
-LATENT_DIM = 64  # Adjust based on your VAE configuration
+LATENT_DIM = 32  # Adjust based on your VAE configuration
+
+# Dataset feature definitions
+LOCATIONS = ["lausanne", "leuven", "singapore"]
+CLIENTS = ["cloudflare", "firefox"]
+RESOLVERS = ["google", "cloudflare"]
+PLATFORMS = ["desktop", "desktop_(aws)", "raspberry_pi"]
+
+# Feature to attribute mapping (adjust based on your dataset columns)
+FEATURE_ATTRIBUTES = {
+    "location": LOCATIONS,
+    "client": CLIENTS,
+    "resolver": RESOLVERS,
+    "platform": PLATFORMS
+}
 
 
 def get_attribute_index(attribute_name, attr_names_list):
@@ -37,35 +51,53 @@ def get_attribute_index(attribute_name, attr_names_list):
             f"Attribute '{attribute_name}' not found in attribute list. Available: {attr_names_list}")
 
 
-def select_samples_with_specific_attributes(dataset, website_ids, attr_names_list, attribute_criteria, num_samples=1):
+def select_samples_with_specific_features(dataset, website_ids, attr_names_list, feature_criteria, num_samples=1):
     """
-    Selects a specified number of network traffic samples that match ALL desired attribute criteria.
+    Selects network traffic samples that match the specified feature criteria.
     Args:
         dataset (tf.data.Dataset): The dataset to search.
         website_ids (list): List of website IDs corresponding to dataset samples.
         attr_names_list (list): List of all attribute names for index lookup.
-        attribute_criteria (dict): A dictionary where keys are attribute names (str)
-                                   and values are their desired binary states (0 or 1).
-                                   E.g., {"location_lausanne": 1, "resolver_cloudflare": 1}
+        feature_criteria (dict): Dictionary with feature values. 
+                                E.g., {"location": "lausanne", "client": "cloudflare", 
+                                      "resolver": "cloudflare", "platform": "desktop"}
         num_samples (int): Number of samples to find.
     Returns:
-        tuple: (list of selected traffic sequences, list of selected attribute tensors, list of website IDs)
+        tuple: (selected traffic sequences, selected attribute tensors, website IDs)
     """
     selected_sequences = []
     selected_attributes_full = []
     selected_website_ids = []
 
+    # Convert feature criteria to binary attribute criteria
+    attribute_criteria = {}
+    for feature, value in feature_criteria.items():
+        # For each feature, set the specific value to 1, others to 0
+        if feature in FEATURE_ATTRIBUTES:
+            for possible_value in FEATURE_ATTRIBUTES[feature]:
+                attr_name = f"{feature}_{possible_value}"
+                if attr_name in attr_names_list:
+                    attribute_criteria[attr_name] = 1 if possible_value == value else 0
+
+    print(
+        f"Converted feature criteria to binary attributes: {attribute_criteria}")
+
     # Prepare attribute indices and desired values from criteria
     attribute_indices_to_check = []
     desired_values_for_check = []
     for attr_name, attr_value in attribute_criteria.items():
-        attr_idx = get_attribute_index(attr_name, attr_names_list)
-        attribute_indices_to_check.append(attr_idx)
-        desired_values_for_check.append(int(attr_value))
+        try:
+            attr_idx = get_attribute_index(attr_name, attr_names_list)
+            attribute_indices_to_check.append(attr_idx)
+            desired_values_for_check.append(int(attr_value))
+        except ValueError:
+            print(
+                f"Warning: Attribute '{attr_name}' not found in dataset, skipping...")
+            continue
 
     if not attribute_indices_to_check:
         raise ValueError(
-            "No attribute criteria provided for sample selection.")
+            "No valid attribute criteria found for sample selection.")
 
     batch_idx = 0
     for x_batch, y_batch in dataset:
@@ -99,9 +131,9 @@ def select_samples_with_specific_attributes(dataset, website_ids, attr_names_lis
 
     if len(selected_sequences) < num_samples:
         criteria_str = ", ".join(
-            [f"{name}={val}" for name, val in attribute_criteria.items()])
+            [f"{feature}={value}" for feature, value in feature_criteria.items()])
         raise ValueError(
-            f"Could not find {num_samples} traffic samples with attributes: {criteria_str}.")
+            f"Could not find {num_samples} traffic samples with features: {criteria_str}.")
 
     return selected_sequences[:num_samples], selected_attributes_full[:num_samples], selected_website_ids[:num_samples]
 
@@ -189,17 +221,19 @@ def plot_comparison_with_actual(actual_sequence, source_sequence, synthesized_se
     plt.close()
 
 
-def run_traffic_extrapolation_experiment(
+def run_location_synthesis_experiment(
     vae_model,
     discriminators,
     attribute_names,
     test_ds,
     test_website_ids,
     df_original,
+    source_features,
+    target_location,
     experiment_params
 ):
     """
-    Runs a generalized latent space extrapolation experiment for network traffic data.
+    Synthesizes traffic from source location to target location while keeping other features fixed.
 
     Args:
         vae_model (tf.keras.Model): The loaded VAE model.
@@ -208,38 +242,27 @@ def run_traffic_extrapolation_experiment(
         test_ds (tf.data.Dataset): The test dataset for sample selection.
         test_website_ids (list): List of website IDs corresponding to test samples.
         df_original (pd.DataFrame): Original dataset for getting actual traffic sequences.
-        experiment_params (dict): A dictionary containing experiment configuration.
+        source_features (dict): Source feature configuration.
+        target_location (str): Target location to synthesize.
+        experiment_params (dict): Experiment configuration parameters.
     """
     print(
-        f"\n--- Starting Traffic Experiment: {experiment_params['title']} ---")
+        f"\n--- Starting Location Synthesis: {source_features['location']} → {target_location} ---")
 
     # Set up experiment-specific output directory
-    experiment_output_dir = os.path.join(
-        BASE_OUTPUT_DIR, experiment_params['output_filename_suffix'])
+    experiment_name = f"{source_features['location']}_to_{target_location}"
+    experiment_output_dir = os.path.join(BASE_OUTPUT_DIR, experiment_name)
     os.makedirs(experiment_output_dir, exist_ok=True)
 
-    # Get attribute indices
-    try:
-        attr_to_change_idx = get_attribute_index(
-            experiment_params['attribute_to_change'], attribute_names)
-
-        fixed_attr_idx = None
-        if experiment_params.get('fixed_attribute'):
-            fixed_attr_idx = get_attribute_index(
-                experiment_params['fixed_attribute'], attribute_names)
-    except ValueError as e:
-        print(f"Error: {e}")
-        return
-
-    # Select initial traffic sample based on criteria
+    # Select initial traffic sample based on source features
     print(
-        f"Selecting traffic sample with criteria: {experiment_params['initial_sample_criteria']}...")
+        f"Selecting traffic sample with source features: {source_features}...")
     try:
-        initial_sequences, _, website_ids = select_samples_with_specific_attributes(
+        initial_sequences, _, website_ids = select_samples_with_specific_features(
             test_ds,
             test_website_ids,
             attribute_names,
-            experiment_params['initial_sample_criteria'],
+            source_features,
             num_samples=1
         )
 
@@ -253,118 +276,107 @@ def run_traffic_extrapolation_experiment(
 
         plot_traffic_sequences([original_sequence[0]],
                                titles=[
-                                   f"Original Traffic (Website {website_id})"],
-                               main_title=f"Initial Sample: {experiment_params['title']}",
-                               filename="original_traffic.png",
+                                   f"Source Traffic (Website {website_id})"],
+                               main_title=f"Source: {source_features}",
+                               filename="source_traffic.png",
                                output_dir=experiment_output_dir)
 
     except ValueError as e:
         print(f"Error selecting initial sample: {e}")
         return
 
-    # Load relevant discriminators
-    print("Loading attribute discriminators...")
-    attr_to_change_discriminator = discriminators.get(
-        experiment_params['attribute_to_change'])
-    fixed_discriminator = None
+    # Load discriminators for target location and fixed features
+    print("Loading discriminators...")
 
-    if experiment_params.get('fixed_attribute'):
-        fixed_discriminator = discriminators.get(
-            experiment_params['fixed_attribute'])
-
-    if not attr_to_change_discriminator:
+    # Target location discriminator
+    target_location_attr = f"location_{target_location}"
+    target_location_discriminator = discriminators.get(target_location_attr)
+    if not target_location_discriminator:
         print(
-            f"Failed to load discriminator for {experiment_params['attribute_to_change']}. Exiting experiment.")
+            f"Failed to load discriminator for {target_location_attr}. Exiting experiment.")
         return
 
-    if experiment_params.get('fixed_attribute') and not fixed_discriminator:
-        print(
-            f"Failed to load discriminator for {experiment_params['fixed_attribute']}. Exiting experiment.")
-        return
+    # Fixed feature discriminators
+    fixed_discriminators = {}
+    for feature, value in source_features.items():
+        if feature != "location":  # Don't fix the location we're changing
+            attr_name = f"{feature}_{value}"
+            disc = discriminators.get(attr_name)
+            if disc:
+                fixed_discriminators[attr_name] = disc
+                print(f"Loaded discriminator for fixed feature: {attr_name}")
+            else:
+                print(f"Warning: Could not load discriminator for {attr_name}")
 
-    print("Discriminator models loaded successfully.")
+    print(f"Target location discriminator: {target_location_attr}")
+    print(f"Fixed feature discriminators: {list(fixed_discriminators.keys())}")
 
-    # Extract hyperplane parameters for the changing attribute
-    attr_to_change_hyperplane = Hyperplane(attr_to_change_discriminator)
-    base_direction_vector, _ = attr_to_change_hyperplane.get_hyplerplane_params()
-
-    # Determine the actual direction for extrapolation
-    if experiment_params['change_direction_towards_positive']:
-        direction_vector = tf.expand_dims(base_direction_vector, axis=0)
-    else:
-        direction_vector = -tf.expand_dims(base_direction_vector, axis=0)
+    # Extract hyperplane parameters for the target location
+    target_location_hyperplane = Hyperplane(target_location_discriminator)
+    direction_vector, _ = target_location_hyperplane.get_hyplerplane_params()
+    direction_vector = tf.expand_dims(direction_vector, axis=0)
 
     print(
-        f"Extrapolation direction vector (for {experiment_params['attribute_to_change']}) shape: {direction_vector.shape}")
+        f"Direction vector shape for {target_location}: {direction_vector.shape}")
 
     # Encode the original traffic sequence
     initial_z_mean, _, _ = vae_model.encode(original_sequence)
     current_z = tf.identity(initial_z_mean)
 
-    # Extrapolate with pull-to-center
-    num_extrapolation_steps = experiment_params['num_extrapolation_steps']
-    step_size = experiment_params['step_size']
-    pull_strength = experiment_params['pull_strength']
+    # Extrapolation parameters
+    num_steps = experiment_params.get('num_steps', 25)
+    step_size = experiment_params.get('step_size', 0.2)
+    pull_strength = experiment_params.get('pull_strength', 0.015)
+    target_threshold = experiment_params.get('target_threshold', 0.5)
+    fixed_threshold = experiment_params.get('fixed_threshold', 0.5)
 
     max_latent_norm_threshold = 10 * np.sqrt(LATENT_DIM)
     print(f"Maximum allowed latent norm: {max_latent_norm_threshold:.2f}")
     print(f"Pull-to-center strength (beta): {pull_strength}")
+    print(f"Target location threshold: {target_threshold}")
+    print(f"Fixed features threshold: {fixed_threshold}")
 
     generated_sequences = [original_sequence[0]]
-    step_titles = ["Original"]
+    step_titles = [f"Source ({source_features['location']})"]
 
-    print("\nStarting extrapolation...")
-    for i in range(num_extrapolation_steps):
-        attr_to_change_score_current = attr_to_change_discriminator(current_z).numpy()[
-            0, 0]
-        fixed_attr_score_current = None
-        if fixed_discriminator:
-            fixed_attr_score_current = fixed_discriminator(current_z).numpy()[
-                0, 0]
+    print(
+        f"\nStarting synthesis from {source_features['location']} to {target_location}...")
+
+    for i in range(num_steps):
+        # Get current discriminator scores
+        target_score = target_location_discriminator(current_z).numpy()[0, 0]
+
+        fixed_scores = {}
+        for attr_name, disc in fixed_discriminators.items():
+            fixed_scores[attr_name] = disc(current_z).numpy()[0, 0]
 
         current_latent_norm = tf.norm(current_z).numpy()
 
-        # Stop conditions
-        # Condition 1: Target attribute state reached
-        if (experiment_params['change_direction_towards_positive'] and
-            attr_to_change_score_current > experiment_params['target_attr_stop_threshold']) or \
-           (not experiment_params['change_direction_towards_positive'] and
-                attr_to_change_score_current < experiment_params['target_attr_stop_threshold']):
+        # Stop condition 1: Target location threshold reached
+        if target_score > target_threshold:
             print(
-                f"Stopped at step {i+1}: Target attribute '{experiment_params['attribute_to_change']}' state reached. Score: {attr_to_change_score_current:.2f}")
+                f"Stopped at step {i+1}: Target location '{target_location}' threshold reached. Score: {target_score:.2f}")
             break
 
-        # Condition 2: Latent vector too far from origin
+        # Stop condition 2: Latent vector too far from origin
         if current_latent_norm > max_latent_norm_threshold:
             print(
-                f"Stopped at step {i+1}: Latent vector norm ({current_latent_norm:.2f}) exceeded threshold ({max_latent_norm_threshold:.2f}).")
+                f"Stopped at step {i+1}: Latent vector norm ({current_latent_norm:.2f}) exceeded threshold.")
             break
 
-        # Condition 3: Fixed attribute not preserved
-        if fixed_discriminator and experiment_params.get('fixed_attribute'):
-            fixed_attr_name = experiment_params['fixed_attribute']
-            stability_threshold = experiment_params['fixed_attr_stability_threshold']
-
-            desired_fixed_attr_initial_val = experiment_params['initial_sample_criteria'].get(
-                fixed_attr_name, 1)
-
-            should_stop = False
-            stop_reason = ""
-
-            if desired_fixed_attr_initial_val == 1:
-                if fixed_attr_score_current < stability_threshold:
-                    should_stop = True
-                    stop_reason = f"Fixed attribute '{fixed_attr_name}' (desired positive) not preserved. Score: {fixed_attr_score_current:.2f} < Threshold: {stability_threshold:.2f}"
-            else:
-                if fixed_attr_score_current > stability_threshold:
-                    should_stop = True
-                    stop_reason = f"Fixed attribute '{fixed_attr_name}' (desired negative) not preserved. Score: {fixed_attr_score_current:.2f} > Threshold: {stability_threshold:.2f}"
-
-            if should_stop:
-                print(f"Stopped at step {i+1}: {stop_reason}")
+        # Stop condition 3: Any fixed feature deviates too much
+        should_stop = False
+        for attr_name, score in fixed_scores.items():
+            if score < fixed_threshold:
+                print(
+                    f"Stopped at step {i+1}: Fixed feature '{attr_name}' deviated. Score: {score:.2f} < {fixed_threshold:.2f}")
+                should_stop = True
                 break
 
-        # Apply the pull-to-center logic and move along the direction vector
+        if should_stop:
+            break
+
+        # Apply extrapolation step with pull-to-center
         current_z = (1 - pull_strength) * current_z + \
             step_size * direction_vector
 
@@ -373,33 +385,56 @@ def run_traffic_extrapolation_experiment(
         generated_sequences.append(decoded_sequence[0])
         step_titles.append(f"Step {i+1}")
 
-        # Log scores
-        log_str = f"Step {i+1}: {experiment_params['attribute_to_change']} Score = {attr_to_change_discriminator(current_z).numpy()[0,0]:.2f}"
-        if fixed_discriminator:
-            log_str += f", {experiment_params['fixed_attribute']} Score = {fixed_discriminator(current_z).numpy()[0,0]:.2f}"
-        log_str += f", Latent Norm = {tf.norm(current_z).numpy():.2f}"
+        # Log progress
+        log_str = f"Step {i+1}: {target_location} = {target_score:.2f}"
+        for attr_name, score in fixed_scores.items():
+            log_str += f", {attr_name} = {score:.2f}"
+        log_str += f", Norm = {current_latent_norm:.2f}"
         print(log_str)
 
     print(
-        f"Extrapolation completed. Generated {len(generated_sequences)} traffic sequences.")
+        f"Synthesis completed. Generated {len(generated_sequences)} traffic sequences.")
 
     # Visualize results
     plot_traffic_sequences(generated_sequences,
                            titles=step_titles,
-                           main_title=f"{experiment_params['title']} (Epoch {CHECKPOINT_EPOCH}, Beta={pull_strength})",
-                           filename=f"{experiment_params['output_filename_suffix']}_progression.png",
+                           main_title=f"Location Synthesis: {source_features['location']} → {target_location}",
+                           filename=f"{experiment_name}_progression.png",
                            output_dir=experiment_output_dir)
 
-    # Plot comparison with actual traffic
-    plot_comparison_with_actual(actual_sequence,
-                                generated_sequences[0].numpy(),
-                                generated_sequences[-1].numpy(),
-                                title=f"{experiment_params['title']} - Website {website_id}",
-                                filename=f"{experiment_params['output_filename_suffix']}_comparison.png",
-                                output_dir=experiment_output_dir)
+    # Try to find actual target location traffic for comparison
+    target_features = source_features.copy()
+    target_features['location'] = target_location
+
+    try:
+        target_sequences, _, target_website_ids = select_samples_with_specific_features(
+            test_ds, test_website_ids, attribute_names, target_features, num_samples=1
+        )
+        target_actual_row = df_original[df_original['Website']
+                                        == target_website_ids[0]]
+        target_actual_sequence = target_actual_row.iloc[0][packet_cols].values.astype(
+            float)
+
+        plot_comparison_with_actual(target_actual_sequence,
+                                    generated_sequences[0].numpy(),
+                                    generated_sequences[-1].numpy(),
+                                    title=f"Synthesis: {source_features['location']} → {target_location}",
+                                    filename=f"{experiment_name}_comparison.png",
+                                    output_dir=experiment_output_dir)
+
+    except ValueError:
+        print(
+            f"Could not find actual {target_location} traffic with same features for comparison.")
+        # Still plot source vs synthesized
+        plot_comparison_with_actual(actual_sequence,
+                                    generated_sequences[0].numpy(),
+                                    generated_sequences[-1].numpy(),
+                                    title=f"Synthesis: {source_features['location']} → {target_location}",
+                                    filename=f"{experiment_name}_comparison.png",
+                                    output_dir=experiment_output_dir)
 
     print(
-        f"--- Traffic Experiment '{experiment_params['title']}' Complete ---")
+        f"--- Location Synthesis Complete: {source_features['location']} → {target_location} ---")
 
 
 def load_models_and_data():
@@ -432,7 +467,7 @@ def load_models_and_data():
 
 
 if __name__ == "__main__":
-    print("--- Initializing Network Traffic Extrapolation Script ---")
+    print("--- Initializing Network Traffic Location Synthesis Script ---")
 
     try:
         # Load all models and data
@@ -441,47 +476,52 @@ if __name__ == "__main__":
         print(f"Available attributes: {attribute_names}")
         print(f"Available discriminators: {list(discriminators.keys())}")
 
-        # Example experiment: Change location while keeping resolver fixed
-        location_change_experiment = {
-            "initial_sample_criteria": {"location_lausanne": 1, "resolver_cloudflare": 1},
-            "attribute_to_change": "location_lausanne",
-            "change_direction_towards_positive": False,  # From Lausanne to not-Lausanne
-            # Stop when location_lausanne score becomes negative
-            "target_attr_stop_threshold": -0.5,
-            "fixed_attribute": "resolver_cloudflare",
-            "fixed_attr_stability_threshold": 0.5,  # Keep resolver_cloudflare positive
-            "num_extrapolation_steps": 25,
-            "step_size": 0.6,
-            "pull_strength": 0.015,
-            "output_filename_suffix": "location_change_keep_resolver",
-            "title": "Network Traffic: Change Location, Keep Resolver"
+        # Experiment parameters
+        experiment_params = {
+            'num_steps': 30,
+            'step_size': 0.2,
+            'pull_strength': 0.015,
+            'target_threshold': 0.6,  # Stop when target location score > 0.6
+            'fixed_threshold': 0.4,   # Stop if any fixed feature score < 0.4
         }
 
-        # Run the experiment
-        run_traffic_extrapolation_experiment(
+        # Example 1: Lausanne → Leuven
+        source_features_1 = {
+            "location": "lausanne",
+            "client": "cloudflare",
+            "resolver": "cloudflare",
+            "platform": "desktop"
+        }
+
+        run_location_synthesis_experiment(
             vae_model, discriminators, attribute_names, test_ds,
-            test_website_ids, df_original, location_change_experiment)
+            test_website_ids, df_original, source_features_1, "leuven", experiment_params)
 
-        # # Example experiment 2: Change resolver while keeping location fixed
-        # resolver_change_experiment = {
-        #     "initial_sample_criteria": {"location_lausanne": 1, "resolver_cloudflare": 1},
-        #     "attribute_to_change": "resolver_cloudflare",
-        #     "change_direction_towards_positive": False,  # From Cloudflare to not-Cloudflare
-        #     "target_attr_stop_threshold": -0.5,
-        #     "fixed_attribute": "location_lausanne",
-        #     "fixed_attr_stability_threshold": 0.5,
-        #     "num_extrapolation_steps": 25,
-        #     "step_size": 0.2,
-        #     "pull_strength": 0.015,
-        #     "output_filename_suffix": "resolver_change_keep_location",
-        #     "title": "Network Traffic: Change Resolver, Keep Location"
-        # }
+        # Example 2: Lausanne → Singapore
+        source_features_2 = {
+            "location": "lausanne",
+            "client": "firefox",
+            "resolver": "google",
+            "platform": "desktop"
+        }
 
-        # run_traffic_extrapolation_experiment(
-        #     vae_model, discriminators, attribute_names, test_ds,
-        #     test_website_ids, df_original, resolver_change_experiment)
+        run_location_synthesis_experiment(
+            vae_model, discriminators, attribute_names, test_ds,
+            test_website_ids, df_original, source_features_2, "singapore", experiment_params)
 
-        print("\n--- All Traffic Extrapolation Experiments Complete ---")
+        # Example 3: Singapore → Leuven
+        source_features_3 = {
+            "location": "singapore",
+            "client": "cloudflare",
+            "resolver": "google",
+            "platform": "raspberry_pi"
+        }
+
+        run_location_synthesis_experiment(
+            vae_model, discriminators, attribute_names, test_ds,
+            test_website_ids, df_original, source_features_3, "leuven", experiment_params)
+
+        print("\n--- All Location Synthesis Experiments Complete ---")
 
     except Exception as e:
         print(f"Error during execution: {e}")
