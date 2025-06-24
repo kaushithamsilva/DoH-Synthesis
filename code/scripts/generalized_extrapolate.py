@@ -1,3 +1,4 @@
+import random
 import tensorflow as tf
 import numpy as np
 import pandas as pd
@@ -51,20 +52,13 @@ def get_attribute_index(attribute_name, attr_names_list):
             f"Attribute '{attribute_name}' not found in attribute list. Available: {attr_names_list}")
 
 
-def select_samples_with_specific_features(df, website_ids, attr_names_list, feature_criteria, num_samples=1):
+def select_samples_with_specific_features(df, attr_names_list, feature_criteria, num_samples=1, website_id=None):
     """
     Selects network traffic samples that match the specified feature criteria from a DataFrame.
-    Args:
-        df (pd.DataFrame): The DataFrame to search.
-        website_ids (list): List of website IDs to filter.
-        attr_names_list (list): List of all attribute names for index lookup.
-        feature_criteria (dict): Dictionary with feature values.
-        num_samples (int): Number of samples to find.
-    Returns:
-        tuple: (selected traffic sequences, selected attribute arrays, website IDs)
+    If website_id is provided, selects only from that website.
     """
-    # Filter to test set
-    df = df[df["Website"].isin(website_ids)].reset_index(drop=True)
+    if website_id is not None:
+        df = df[df["Website"] == website_id].reset_index(drop=True)
 
     # Build mask for feature criteria
     mask = np.ones(len(df), dtype=bool)
@@ -74,7 +68,7 @@ def select_samples_with_specific_features(df, website_ids, attr_names_list, feat
 
     if len(filtered_df) < num_samples:
         raise ValueError(
-            f"Could not find {num_samples} samples with features: {feature_criteria}")
+            f"Could not find {num_samples} samples with features: {feature_criteria} and website_id: {website_id}")
 
     # Extract features and attributes
     feature_cols = [str(i) for i in range(128)]
@@ -186,57 +180,46 @@ def run_location_synthesis_experiment(
     vae_model,
     discriminators,
     attribute_names,
-    test_website_ids,
     test_df,
     source_features,
     target_location,
-    experiment_params
+    experiment_params,
+    website_id=None
 ):
     """
     Synthesizes traffic from source location to target location while keeping other features fixed.
-
-    Args:
-        vae_model (tf.keras.Model): The loaded VAE model.
-        discriminators (dict): Dictionary of loaded discriminator models.
-        attribute_names (list): List of all attribute names.
-        test_ds (tf.data.Dataset): The test dataset for sample selection.
-        test_website_ids (list): List of website IDs corresponding to test samples.
-        df_original (pd.DataFrame): Original dataset for getting actual traffic sequences.
-        source_features (dict): Source feature configuration.
-        target_location (str): Target location to synthesize.
-        experiment_params (dict): Experiment configuration parameters.
+    If website_id is provided, uses that website for both source and target.
     """
     print(
-        f"\n--- Starting Location Synthesis: {source_features['location']} → {target_location} ---")
+        f"\n--- Starting Location Synthesis: {source_features['location']} → {target_location} (website_id={website_id}) ---")
 
-    # Set up experiment-specific output directory
-    experiment_name = f"{source_features['location']}_to_{target_location}"
+    experiment_name = f"{source_features['location']}_to_{target_location}_website_{website_id}"
     experiment_output_dir = os.path.join(BASE_OUTPUT_DIR, experiment_name)
     os.makedirs(experiment_output_dir, exist_ok=True)
 
-    # Select initial traffic sample based on source features
+    # Select initial traffic sample based on source features and website_id
     print(
-        f"Selecting traffic sample with source features: {source_features}...")
+        f"Selecting traffic sample with source features: {source_features} and website_id: {website_id}...")
     try:
         initial_sequences, _, website_ids = select_samples_with_specific_features(
             test_df,
-            test_website_ids,
             attribute_names,
             source_features,
-            num_samples=1
+            num_samples=1,
+            website_id=website_id
         )
 
         original_sequence = tf.expand_dims(initial_sequences[0], axis=0)
-        website_id = website_ids[0]
+        website_id_used = website_ids[0]
 
-        # Get actual traffic sequence from original dataset
-        actual_row = df_original[df_original['Website'] == website_id]
+        # Get actual traffic sequence from test_df
+        actual_row = test_df[test_df['Website'] == website_id_used]
         packet_cols = [str(i) for i in range(SEQUENCE_LENGTH)]
         actual_sequence = actual_row.iloc[0][packet_cols].values.astype(float)
 
         plot_traffic_sequences([original_sequence[0]],
                                titles=[
-                                   f"Source Traffic (Website {website_id})"],
+                                   f"Source Traffic (Website {website_id_used})"],
                                main_title=f"Source: {source_features}",
                                filename="source_traffic.png",
                                output_dir=experiment_output_dir)
@@ -362,13 +345,13 @@ def run_location_synthesis_experiment(
                            filename=f"{experiment_name}_progression.png",
                            output_dir=experiment_output_dir)
 
-    # Try to find actual target location traffic for comparison
+    # Try to find actual target location traffic for comparison (same website_id)
     target_features = source_features.copy()
     target_features['location'] = target_location
 
     try:
         target_sequences, _, target_website_ids = select_samples_with_specific_features(
-            test_df, test_website_ids, attribute_names, target_features, num_samples=1
+            test_df, attribute_names, target_features, num_samples=1, website_id=website_id_used
         )
         target_actual_row = test_df[test_df['Website']
                                     == target_website_ids[0]]
@@ -376,24 +359,24 @@ def run_location_synthesis_experiment(
             float)
 
         plot_comparison_with_actual(target_actual_sequence,
-                                    generated_sequences[0],
-                                    generated_sequences[-1],
-                                    title=f"Synthesis: {source_features['location']} → {target_location}",
+                                    generated_sequences[0].numpy(),
+                                    generated_sequences[-1].numpy(),
+                                    title=f"Synthesis: {source_features['location']} → {target_location} (website_id={website_id_used})",
                                     filename=f"{experiment_name}_comparison.png",
                                     output_dir=experiment_output_dir)
 
     except ValueError:
         print(
-            f"Could not find actual {target_location} traffic with same features for comparison.")
+            f"Could not find actual {target_location} traffic with same features and website_id={website_id_used} for comparison.")
         plot_comparison_with_actual(actual_sequence,
-                                    generated_sequences[0],
-                                    generated_sequences[-1],
-                                    title=f"Synthesis: {source_features['location']} → {target_location}",
+                                    generated_sequences[0].numpy(),
+                                    generated_sequences[-1].numpy(),
+                                    title=f"Synthesis: {source_features['location']} → {target_location} (website_id={website_id_used})",
                                     filename=f"{experiment_name}_comparison.png",
                                     output_dir=experiment_output_dir)
 
     print(
-        f"--- Location Synthesis Complete: {source_features['location']} → {target_location} ---")
+        f"--- Location Synthesis Complete: {source_features['location']} → {target_location} (website_id={website_id_used}) ---")
 
 
 def load_models_and_data():
@@ -432,7 +415,7 @@ def load_models_and_data():
 if __name__ == "__main__":
     print("--- Initializing Network Traffic Location Synthesis Script ---")
 
-    vae_model, discriminators, attribute_names, test_website_ids, df_original = load_models_and_data()
+    vae_model, discriminators, attribute_names, test_website_ids, test_df = load_models_and_data()
 
     print(f"Available attributes: {attribute_names}")
     print(f"Available discriminators: {list(discriminators.keys())}")
@@ -451,9 +434,14 @@ if __name__ == "__main__":
         "resolver": "cloudflare",
         "platform": "desktop"
     }
+    # Specify the website_id you want to use
+    # <-- Replace with your desired website_id
+    website_id_to_use = random.sample(test_website_ids, 1)[0]
 
     run_location_synthesis_experiment(
         vae_model, discriminators, attribute_names,
-        test_website_ids, df_original, source_features_1, "leuven", experiment_params)
+        test_df, source_features_1, "leuven", experiment_params,
+        website_id=website_id_to_use
+    )
 
     print("\n--- All Location Synthesis Experiments Complete ---")
