@@ -35,7 +35,7 @@ if __name__ == '__main__':
     print("Loading Dataset...")
     # load the dataset
     df = pd.read_csv(
-        f"../../dataset/processed/{locations[0]}-{locations[1]}-scaled-balanced.csv")
+        f"../../dataset/processed/LOC1-LOC2-LOC3-RPI-CL-GOOGLE-CLOUD-processed_dataset.csv")
 
     length = len(df.columns) - 2  # subtract the two label columns
 
@@ -52,7 +52,7 @@ if __name__ == '__main__':
 
     # Load the model with custom objects
     web_model = tf.keras.models.load_model(
-        f"../../models-LOC2-LOC3/website/{locations[0]}-{locations[1]}-synth-transformer.keras",
+        f"../../models/website/Lausanne-Leuven-Singapore-baseCNN-online_semi_hard_AdamW-epochs1000-train_samples1200-batch128_best.keras",
         custom_objects=custom_objects
     )
 
