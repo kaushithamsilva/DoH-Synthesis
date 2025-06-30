@@ -31,14 +31,15 @@ if __name__ == '__main__':
     from hyperplane import get_hyperplane
     import classification
 
-    locations = ['LOC2', 'LOC3']
+    locations = ['leuven', 'singapore']
 
     print("Loading Dataset...")
     # load the dataset
     df = pd.read_csv(
         f"../../dataset/processed/LOC1-LOC2-LOC3-RPI-CL-GOOGLE-CLOUD-processed_dataset.csv")
 
-    length = len(df.columns) - 2  # subtract the two label columns
+    length = 32  # subtract the two label columns
+    df = df.loc[:, ['Location', 'Website', *[str(i) for i in range(length)]]]
 
     num_train_samples = 1200
     # get train-test set
