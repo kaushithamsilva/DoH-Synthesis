@@ -37,7 +37,8 @@ def get_train_test_dataset(
     num_train: int = 1200,
     num_test: int = 300,
     batch_size: int = 128,
-    random_seed: int = 42
+    random_seed: int = 42,
+    length: int = 128,
 ) -> Tuple[
     tf.data.Dataset,    # train dataset
     tf.data.Dataset,    # test dataset
@@ -75,7 +76,7 @@ def get_train_test_dataset(
     print(f"→ {len(train_websites)} train sites, {len(test_websites)} test sites")
 
     # --- 3) Extract features and build binary targets ---
-    feature_cols = [str(i) for i in range(128)]
+    feature_cols = [str(i) for i in range(length)]
     meta_cols = ["Location", "Resolver", "Client", "Platform"]
 
     X_train = train_df[feature_cols].astype("float32").values

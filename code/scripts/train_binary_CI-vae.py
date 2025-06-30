@@ -149,18 +149,20 @@ def train_ci_vae(vae_model, discriminators, train_ds, val_ds, optimizer, epochs,
 if __name__ == '__main__':
     # Load data
     DATASET_PATH = "../../dataset/processed/processed_dataset.csv"
+    length = 32
     train_ds, test_ds, train_ids, test_ids, attr_names = get_train_test_dataset(
         DATASET_PATH,
         num_train=1200,
         num_test=300,
         batch_size=BATCH_SIZE,
-        random_seed=42
+        random_seed=42,
+        length=length,
     )
 
     # Initialize VAE
-    input_dim = 128
-    latent_dim = 32
-    hidden_dim = 64
+    input_dim = length
+    latent_dim = 8
+    hidden_dim = 16
     vae_model = ConvVAE_BatchNorm(input_dim, latent_dim, hidden_dim)
     # Build shapes
     for x_batch, _ in train_ds.take(1):
