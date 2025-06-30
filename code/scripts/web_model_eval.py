@@ -99,12 +99,12 @@ if __name__ == '__main__':
     # )
 
     le = LabelEncoder()
-    X_train = df[df[attribute] == train_attribute].drop(
+    X_train = test_df[test_df[attribute] == train_attribute].drop(
         [attribute, 'Website'], axis=1)
-    X_test = df[df[attribute] == test_attribute].drop(
+    X_test = test_df[test_df[attribute] == test_attribute].drop(
         [attribute, 'Website'], axis=1)
-    y_train = df[df[attribute] == train_attribute]['Website']
-    y_test = df[df[attribute] == test_attribute]['Website']
+    y_train = test_df[test_df[attribute] == train_attribute]['Website']
+    y_test = test_df[test_df[attribute] == test_attribute]['Website']
 
     y_test = le.fit_transform(y_test)
     y_train = le.fit_transform(y_train)
