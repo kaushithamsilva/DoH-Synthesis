@@ -21,7 +21,7 @@ KL_WEIGHT = 0.001
 CLASSIFICATION_LOSS_WEIGHT = 1.0
 EPOCHS = 1000  # Adjust as needed
 BATCH_SIZE = 256
-LEARNING_RATE = 1e-4
+LEARNING_RATE = 1e-5
 
 # Ensure directories exist
 os.makedirs(CHECKPOINT_PATH, exist_ok=True)
