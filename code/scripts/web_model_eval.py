@@ -34,8 +34,8 @@ if __name__ == '__main__':
     from hyperplane import get_hyperplane
     import classification
 
-    attribute = 'Resolver'
-    attribute_values = ['Google', 'Cloudflare']
+    attribute = 'Location'
+    attribute_values = ['Leuven', 'Singapore']
     train_attribute = attribute_values[0]
     test_attribute = attribute_values[1]
 
