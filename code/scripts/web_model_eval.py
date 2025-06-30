@@ -31,7 +31,7 @@ if __name__ == '__main__':
     from hyperplane import get_hyperplane
     import classification
 
-    locations = ['leuven', 'singapore']
+    locations = ['Leuven', 'Singapore']
 
     print("Loading Dataset...")
     # load the dataset
