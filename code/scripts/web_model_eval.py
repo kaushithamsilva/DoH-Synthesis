@@ -17,7 +17,9 @@ def get_batched_encode(web_model, x, batch_size=2048):
     z_list = []
     for i in range(0, len(x), batch_size):
         chunk = x[i:i+batch_size]
-        z_chunk = web_model(chunk)
+        # add only for the online triplet model
+        chunk_reshaped = np.expand_dims(chunk, axis=-1)
+        z_chunk = web_model.predict(chunk_reshaped)
         z_list.append(z_chunk)
     return np.concatenate(z_list, axis=0)
 
@@ -38,7 +40,7 @@ if __name__ == '__main__':
     df = pd.read_csv(
         f"../../dataset/processed/LOC1-LOC2-LOC3-RPI-CL-GOOGLE-CLOUD-processed_dataset.csv")
 
-    length = 32  # subtract the two label columns
+    length = 32
     df = df.loc[:, ['Location', 'Website', *[str(i) for i in range(length)]]]
 
     num_train_samples = 1200
