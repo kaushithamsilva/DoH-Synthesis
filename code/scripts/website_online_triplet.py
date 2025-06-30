@@ -5,7 +5,6 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers, models
-from tensorflow_addons.optimizers import AdamW
 from tensorflow.keras.losses import TripletSemiHardLoss
 
 
@@ -121,7 +120,7 @@ if __name__ == '__main__':
     # You might need to tune the learning_rate and weight_decay
     learning_rate = 1e-4  # Common starting point
     weight_decay = 1e-5   # Common starting point for regularization
-    model.compile(optimizer=AdamW(
+    model.compile(optimizer=tf.keras.optimizers.AdamW(
         learning_rate=learning_rate, weight_decay=weight_decay))
 
     print("Training Triplet Model with Online Semi-Hard Mining using AdamW...")
