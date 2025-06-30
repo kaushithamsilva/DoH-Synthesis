@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
 import model_utils
-from website_online_triplet import TripletSemiHardLossVectorized, L2Normalize
+from website_online_triplet import TripletSemiHardLossVectorized, L2Normalize, TripletTrainingConfig, create_base_cnn, create_model_and_compile
 
 
 def get_batched_encode(web_model, x, batch_size=2048):
@@ -58,12 +58,30 @@ if __name__ == '__main__':
 
     }
 
-    # Load the model with custom objects
-    tf.keras.config.enable_unsafe_deserialization()
-    web_model = tf.keras.models.load_model(
-        f"../../models/website/Lausanne-Leuven-Singapore-baseCNN-online_semi_hard_AdamW-epochs1000-train_samples1200-batch128_best.keras",
-        custom_objects=custom_objects
+    # 1) Re‑instantiate the model graph
+    config = TripletTrainingConfig(feature_length=32,
+                                   num_train_samples=1200,
+                                   batch_size=128,
+                                   epochs=1000,
+                                   learning_rate=1e-4,
+                                   weight_decay=1e-5,
+                                   margin=0.2,
+                                   patience=50,
+                                   validation_split=0.2,
+                                   base_network_name='baseCNN')
+
+    base_net = create_base_cnn(config.feature_length, embedding_dim=64)
+    web_model = create_model_and_compile(base_net, config)
+    web_model.load_weights(
+        f"../../models/website/Lausanne-Leuven-Singapore-baseCNN-online_semi_hard_AdamW-epochs1000-train_samples1200-batch128_best.keras"
     )
+
+    # Load the model with custom objects
+    # tf.keras.config.enable_unsafe_deserialization()
+    # web_model = tf.keras.models.load_model(
+    #     f"../../models/website/Lausanne-Leuven-Singapore-baseCNN-online_semi_hard_AdamW-epochs1000-train_samples1200-batch128_best.keras",
+    #     custom_objects=custom_objects
+    # )
 
     X_train, y_train, X_test, y_test, le = classification.preprocess_data_for_web_classification(
         test_df, locations[0], locations[1])
