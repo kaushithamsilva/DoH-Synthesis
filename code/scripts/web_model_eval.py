@@ -60,7 +60,7 @@ if __name__ == '__main__':
 
     train_df = df[df[attribute].isin(
         attribute_values) & df["Website"].isin(train_web_samples)]
-    train_df.sort_values(by=["Location"], inplace=True)
+    train_df.sort_values(by=[attribute], inplace=True)
     train_df.reset_index(drop=True, inplace=True)
 
     test_df = df[df[attribute].isin(attribute_values) & (df["Website"].isin(
@@ -99,12 +99,12 @@ if __name__ == '__main__':
     # )
 
     le = LabelEncoder()
-    X_train = df[df['Location'] == train_attribute].drop(
-        ['Location', 'Website'], axis=1)
-    X_test = df[df['Location'] == test_attribute].drop(
-        ['Location', 'Website'], axis=1)
-    y_train = df[df['Location'] == train_attribute]['Website']
-    y_test = df[df['Location'] == test_attribute]['Website']
+    X_train = df[df[attribute] == train_attribute].drop(
+        [attribute, 'Website'], axis=1)
+    X_test = df[df[attribute] == test_attribute].drop(
+        [attribute, 'Website'], axis=1)
+    y_train = df[df[attribute] == train_attribute]['Website']
+    y_test = df[df[attribute] == test_attribute]['Website']
 
     y_test = le.fit_transform(y_test)
     y_train = le.fit_transform(y_train)
