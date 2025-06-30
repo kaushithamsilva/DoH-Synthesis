@@ -6,3 +6,4 @@
 /synthesized
 checkpoints/
 *.joblib
+/code/API_KEY.py

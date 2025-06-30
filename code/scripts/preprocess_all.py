@@ -11,7 +11,7 @@ folder_metadata = {
     "LOC1":   {"Location": "Lausanne",   "Resolver": "Cloudflare", "Client": "Cloudflare", "Platform": "Desktop"},
     "LOC2":   {"Location": "Leuven",     "Resolver": "Cloudflare", "Client": "Cloudflare", "Platform": "Desktop"},
     "LOC3":   {"Location": "Singapore",  "Resolver": "Cloudflare", "Client": "Cloudflare", "Platform": "Desktop (AWS)"},
-    "OW":     {"Location": "Lausanne",   "Resolver": "Cloudflare", "Client": "Cloudflare", "Platform": "Desktop"},
+    # "OW":     {"Location": "Lausanne",   "Resolver": "Cloudflare", "Client": "Cloudflare", "Platform": "Desktop"},
     "RPI":    {"Location": "Lausanne",   "Resolver": "Cloudflare", "Client": "Cloudflare", "Platform": "Raspberry Pi"},
     "CL-FF":  {"Location": "Leuven",     "Resolver": "Cloudflare", "Client": "Cloudflare", "Platform": "Desktop"},
     "GOOGLE": {"Location": "Leuven",     "Resolver": "Google",     "Client": "Firefox",    "Platform": "Desktop"},
@@ -81,7 +81,8 @@ def main():
 
     # 6) Reset index and save
     df_final = df_expanded.reset_index(drop=True)
-    df_final.to_csv("processed_dataset.csv", index_label="index")
+    df_final.to_csv(
+        "../../dataset/processed/LOC1-LOC2-LOC3-RPI-CL-GOOGLE-CLOUD-processed_dataset.csv", index_label="index")
     print("Saved processed_dataset.csv with shape", df_final.shape)
 
 

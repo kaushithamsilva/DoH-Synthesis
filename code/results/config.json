@@ -1,0 +1,11 @@
+{
+  "source_location": "LOC2",
+  "target_location": "LOC3",
+  "num_sample_pairs": 10,
+  "num_test_traces": 5,
+  "max_iterations": 10,
+  "model_name": "gemma-3-27b-it",
+  "data_path": "../dataset/processed/LOC2-LOC3-Date-ID.csv",
+  "data_points": 32,
+  "max_retries": 3
+}
