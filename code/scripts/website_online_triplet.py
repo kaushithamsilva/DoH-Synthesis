@@ -82,10 +82,12 @@ class TripletSemiHardLossVectorized(tf.keras.losses.Loss):
 
         valid_losses = tf.boolean_mask(loss, valid_mask)
 
-        if tf.size(valid_losses) == 0:
-            return 0.0
-
-        return tf.reduce_mean(valid_losses)
+        # Use tf.cond to handle the conditional logic in graph mode
+        return tf.cond(
+            tf.equal(tf.size(valid_losses), 0),
+            lambda: 0.0,
+            lambda: tf.reduce_mean(valid_losses)
+        )
 
     def _pairwise_distances(self, embeddings):
         """Compute pairwise Euclidean distances between embeddings."""
