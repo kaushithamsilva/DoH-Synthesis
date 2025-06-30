@@ -1,3 +1,4 @@
+import random
 import triplet_functions
 import init_gpu
 import init_dataset
@@ -318,9 +319,17 @@ def main():
     df = df.loc[:, ['Website'] + feature_columns]
 
     # Get train-test split
-    train_df, test_df, _, _ = init_dataset.get_sample(
-        df, locations, range(1500), config.num_train_samples
-    )
+    random.seed(RANDOM_SEED := 42)
+    all_websites = range(1500)
+    train_web_samples = random.sample(all_websites, 1200)
+    test_web_samples = list(set(all_websites) - set(train_web_samples))
+
+    print(f"Training Websites: {train_web_samples}")
+    print(f"Test Websites: {test_web_samples}")
+
+    # Filter DataFrame for training and testing
+    train_df = df[df['Website'].isin(train_web_samples)].copy()
+    train_df.sort_values(by=['Website'], inplace=True)
 
     logger.info("Creating TensorFlow Datasets...")
     # Create full training dataset
