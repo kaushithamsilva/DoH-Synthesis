@@ -65,7 +65,7 @@ for idx, (x_batch, _) in enumerate(test_ds):
     reconstructions.append(x_recon)
 
 # Ensure save directory exists
-save_dir = "../figures/reconstructions"
+save_dir = "../../figures/reconstructions"
 os.makedirs(save_dir, exist_ok=True)
 save_path = os.path.join(save_dir, "vae_reconstructions.png")
 
