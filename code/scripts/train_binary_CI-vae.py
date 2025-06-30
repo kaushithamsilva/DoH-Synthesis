@@ -6,7 +6,7 @@ import datetime
 
 import model_utils  # Ensure model_utils.py has save_model
 from init_dataset import get_train_test_dataset
-from train_vae import VAE, Sampling
+from train_vae import ConvVAE_BatchNorm, Sampling
 import init_gpu
 
 # Initialize GPUs
@@ -161,7 +161,7 @@ if __name__ == '__main__':
     input_dim = 128
     latent_dim = 32
     hidden_dim = 64
-    vae_model = VAE(input_dim, latent_dim, hidden_dim)
+    vae_model = ConvVAE_BatchNorm(input_dim, latent_dim, hidden_dim)
     # Build shapes
     for x_batch, _ in train_ds.take(1):
         _ = vae_model(x_batch)
