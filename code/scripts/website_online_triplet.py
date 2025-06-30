@@ -346,7 +346,7 @@ def main():
     )
 
     # Clean up memory
-    del df, train_df, test_df
+    del df, train_df
 
     logger.info("Setting up model...")
     # Initialize base network
