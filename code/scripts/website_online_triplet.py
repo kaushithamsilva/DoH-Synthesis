@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 
 @tf.keras.utils.register_keras_serializable()
 class TripletSemiHardLossVectorized(tf.keras.losses.Loss):
-    def __init__(self, margin=1.0, name="triplet_semihard_loss_vectorized"):
-        super().__init__(name=name)
+    def __init__(self, margin=1.0, name="triplet_semihard_loss_vectorized", **kwargs):
+        super().__init__(name=name, **kwargs)
         self.margin = margin
 
     def call(self, y_true, y_pred):
