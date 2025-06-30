@@ -11,15 +11,15 @@ import model_utils
 # --- Configuration ---
 DATASET_CSV = '../../dataset/processed/processed_dataset.csv'
 CHECKPOINT_PATH = '../../models/binary_ci_vae/checkpoints/'
-CHECKPOINT_EPOCH = 100
+CHECKPOINT_EPOCH = 150
 VAE_MODEL_NAME = f'vae_e{CHECKPOINT_EPOCH}'
-SEQUENCE_LENGTH = 128
+SEQUENCE_LENGTH = 32
 NUM_SAMPLES = 6  # Number of test samples to visualize
 
 # --- Load Data ---
 print("Loading test data...")
 _, test_ds, _, _, _ = get_train_test_dataset(
-    DATASET_CSV, num_train=1200, num_test=300, batch_size=1, random_seed=42
+    DATASET_CSV, num_train=1200, num_test=300, batch_size=1, random_seed=42, length=SEQUENCE_LENGTH
 )
 
 # --- Load VAE Model ---
