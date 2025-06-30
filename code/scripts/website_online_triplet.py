@@ -16,6 +16,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+@tf.keras.utils.register_keras_serializable()
 class TripletSemiHardLossVectorized(tf.keras.losses.Loss):
     def __init__(self, margin=1.0, name="triplet_semihard_loss_vectorized"):
         super().__init__(name=name)
@@ -104,6 +105,14 @@ class TripletSemiHardLossVectorized(tf.keras.losses.Loss):
         distances = tf.sqrt(distances_squared + tf.keras.backend.epsilon())
 
         return distances
+
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "margin": self.margin,
+            # "name": self.name # name is already handled by super()
+        })
+        return config
 
 
 class TripletTrainingConfig:

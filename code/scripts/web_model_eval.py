@@ -6,6 +6,7 @@ import numpy as np
 import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
 import model_utils
+from website_online_triplet import TripletSemiHardLossVectorized
 
 
 def get_batched_encode(web_model, x, batch_size=2048):
@@ -47,7 +48,8 @@ if __name__ == '__main__':
     # Create a dictionary of custom objects
     custom_objects = {
         'ResidualBlock': ResidualBlock,
-        "TransformerEncoderBlock": triplet_functions.TransformerEncoderBlock
+        "TransformerEncoderBlock": triplet_functions.TransformerEncoderBlock,
+        "TripletSemiHardLossVectorized": TripletSemiHardLossVectorized,
     }
 
     # Load the model with custom objects
