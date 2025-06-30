@@ -120,7 +120,7 @@ class TripletTrainingConfig:
         margin: float = 0.2,
         patience: int = 50,
         validation_split: float = 0.2,
-        base_network_name: str = 'baseCNN'
+        base_network_name: str = 'baseGRU'
     ):
         self.feature_length = feature_length
         self.num_train_samples = num_train_samples
