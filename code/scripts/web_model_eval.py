@@ -60,6 +60,8 @@ if __name__ == '__main__':
         'ResidualBlock': ResidualBlock,
         "TransformerEncoderBlock": triplet_functions.TransformerEncoderBlock,
         "TripletSemiHardLossVectorized": TripletSemiHardLossVectorized,
+        # Add the L2 normalization function to custom objects
+        'l2_normalize_fix': l2_normalize_fix,
     }
 
     # Load the model with custom objects
