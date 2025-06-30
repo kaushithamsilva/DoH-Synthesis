@@ -54,6 +54,7 @@ if __name__ == '__main__':
         "TransformerEncoderBlock": triplet_functions.TransformerEncoderBlock,
         "TripletSemiHardLossVectorized": TripletSemiHardLossVectorized,
         "L2Normalize": L2Normalize,
+        "tf": tf,
 
     }
 
