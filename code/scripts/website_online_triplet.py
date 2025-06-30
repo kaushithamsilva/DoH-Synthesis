@@ -285,6 +285,103 @@ def setup_callbacks(config: TripletTrainingConfig, model_save_path: str) -> list
     return callbacks_list
 
 
+def create_base_cnn(input_dim: int, embedding_dim: int = 64, hidden_dim: int = 32):
+    """
+    Create a CNN suitable for 32-length input sequences.
+
+    Args:
+        input_dim: Length of input sequence (32)
+        embedding_dim: Size of output embedding (recommended: 32-128)
+        hidden_dim: Base number of filters (reduced for shorter sequences)
+
+    Critique: Original CNN was over-engineered for 32-length inputs.
+    - 4 conv blocks with 4 pooling operations would reduce 32 -> 2 dimensions
+    - This causes information loss and potential vanishing gradients
+    - For 32-length inputs, 2-3 conv blocks are sufficient
+    """
+    return tf.keras.Sequential([
+        tf.keras.layers.InputLayer(input_shape=(input_dim, 1)),
+
+        # First convolutional block - capture local patterns
+        tf.keras.layers.Conv1D(hidden_dim, kernel_size=5,
+                               activation="relu", padding="same"),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.MaxPooling1D(pool_size=2),  # 32 -> 16
+
+        # Second convolutional block - capture mid-level patterns
+        tf.keras.layers.Conv1D(hidden_dim * 2, kernel_size=3,
+                               activation="relu", padding="same"),
+        tf.keras.layers.BatchNormalization(),
+        tf.keras.layers.MaxPooling1D(pool_size=2),  # 16 -> 8
+
+        # Third convolutional block - capture high-level patterns
+        tf.keras.layers.Conv1D(hidden_dim * 4, kernel_size=3,
+                               activation="relu", padding="same"),
+        tf.keras.layers.BatchNormalization(),
+        # No pooling here to preserve some spatial information (keeps 8 dims)
+
+        # Global pooling instead of flatten to handle variable lengths better
+        tf.keras.layers.GlobalMaxPooling1D(),
+
+        # Dense layers for embedding
+        tf.keras.layers.Dense(embedding_dim * 2, activation='relu'),
+        tf.keras.layers.Dropout(0.3),  # Increased dropout for regularization
+        # No activation for embeddings
+        tf.keras.layers.Dense(embedding_dim, activation=None),
+        tf.keras.layers.Lambda(lambda x: tf.nn.l2_normalize(
+            x, axis=1))  # L2 normalize embeddings
+    ], name="baseCNN")
+
+
+def create_base_gru(input_dim: int, embedding_dim: int = 64, hidden_dim: int = 32):
+    """
+    Create a GRU-based network for sequence modeling.
+
+    Args:
+        input_dim: Length of input sequence  
+        embedding_dim: Size of output embedding
+        hidden_dim: Size of GRU hidden state
+
+    Critique of original GRU:
+    - Single GRU layer might not capture complex temporal patterns
+    - No regularization except recurrent_dropout
+    - Missing normalization which can help with training stability
+    """
+    inputs = tf.keras.layers.Input(shape=(input_dim, 1))
+
+    # Bidirectional GRU to capture patterns in both directions
+    x = tf.keras.layers.Bidirectional(
+        tf.keras.layers.GRU(
+            hidden_dim,
+            return_sequences=True,  # Return sequences for second layer
+            recurrent_dropout=0.1,
+            dropout=0.1
+        )
+    )(inputs)
+
+    # Second GRU layer for deeper representation
+    x = tf.keras.layers.GRU(
+        hidden_dim,
+        return_sequences=False,  # Only return final state
+        recurrent_dropout=0.1,
+        dropout=0.1
+    )(x)
+
+    # Layer normalization for training stability
+    x = tf.keras.layers.LayerNormalization()(x)
+
+    # Dense layers for embedding
+    x = tf.keras.layers.Dense(embedding_dim * 2, activation='relu')(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
+    x = tf.keras.layers.Dense(embedding_dim, activation=None)(x)
+
+    # L2 normalize embeddings for better triplet loss performance
+    outputs = tf.keras.layers.Lambda(
+        lambda x: tf.nn.l2_normalize(x, axis=1))(x)
+
+    return tf.keras.Model(inputs=inputs, outputs=outputs, name="baseGRU")
+
+
 def main():
     """Main training function."""
     # Initialize configuration
@@ -351,9 +448,14 @@ def main():
     del df, train_df
 
     logger.info("Setting up model...")
-    # Initialize base network
-    base_instance = getattr(triplet_functions, config.base_network_name)(
-        config.feature_length)
+
+    # Initialize base network based on configuration
+    if config.base_network_name == 'baseCNN':
+        base_instance = create_base_cnn(
+            config.feature_length, embedding_dim=64)
+    elif config.base_network_name == 'baseGRU':
+        base_instance = create_base_gru(
+            config.feature_length, embedding_dim=64)
 
     # Create and compile model
     model = create_model_and_compile(base_instance, config)
