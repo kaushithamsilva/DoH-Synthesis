@@ -6,14 +6,7 @@ import numpy as np
 import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
 import model_utils
-from website_online_triplet import TripletSemiHardLossVectorized
-
-
-def l2_normalize_fix(x):
-    # This is a workaround for the issue with tf.nn.l2_normalize
-    """Fixed L2 normalization function that doesn't rely on tf in lambda scope"""
-    import tensorflow as tf
-    return tf.nn.l2_normalize(x, axis=1)
+from website_online_triplet import TripletSemiHardLossVectorized, L2Normalize
 
 
 def get_batched_encode(web_model, x, batch_size=2048):
@@ -60,49 +53,25 @@ if __name__ == '__main__':
         'ResidualBlock': ResidualBlock,
         "TransformerEncoderBlock": triplet_functions.TransformerEncoderBlock,
         "TripletSemiHardLossVectorized": TripletSemiHardLossVectorized,
-        # Add the L2 normalization function to custom objects
-        'l2_normalize_fix': l2_normalize_fix,
+        "L2Normalize": L2Normalize,
+
     }
 
     # Load the model with custom objects
     tf.keras.config.enable_unsafe_deserialization()
-    # Try loading with the custom objects first
-    try:
-        web_model = tf.keras.models.load_model(
-            f"../../models/website/Lausanne-Leuven-Singapore-baseCNN-online_semi_hard_AdamW-epochs1000-train_samples1200-batch128_best.keras",
-            custom_objects=custom_objects
-        )
-    except Exception as e:
-        print(f"Initial loading failed: {e}")
-        print("Attempting alternative loading method...")
-
-        # Alternative approach: manually patch the tf reference in lambda scope
-        import tensorflow as tf
-        original_tf = tf
-
-        # Create a custom lambda function that has tf in its scope
-        def create_l2_normalize_lambda():
-            def l2_normalize_lambda(x):
-                return original_tf.nn.l2_normalize(x, axis=1)
-            return l2_normalize_lambda
-
-        # Add to custom objects
-        custom_objects['<lambda>'] = create_l2_normalize_lambda()
-
-        # Try loading again
-        web_model = tf.keras.models.load_model(
-            f"../../models/website/Lausanne-Leuven-Singapore-baseCNN-online_semi_hard_AdamW-epochs1000-train_samples1200-batch128_best.keras",
-            custom_objects=custom_objects
-        )
+    web_model = tf.keras.models.load_model(
+        f"../../models/website/Lausanne-Leuven-Singapore-baseCNN-online_semi_hard_AdamW-epochs1000-train_samples1200-batch128_best.keras",
+        custom_objects=custom_objects
+    )
 
     X_train, y_train, X_test, y_test, le = classification.preprocess_data_for_web_classification(
         test_df, locations[0], locations[1])
 
-    print("Evaluating the model...")
-    print("Without Embedding:")
-    model = KNeighborsClassifier(n_neighbors=10)
-    classification.evaluate_classification_model(
-        X_train, y_train, X_test, y_test, model)
+    # print("Evaluating the model...")
+    # print("Without Embedding:")
+    # model = KNeighborsClassifier(n_neighbors=10)
+    # classification.evaluate_classification_model(
+    #     X_train, y_train, X_test, y_test, model)
 
     print("With Embedding:")
     model = KNeighborsClassifier(n_neighbors=10)

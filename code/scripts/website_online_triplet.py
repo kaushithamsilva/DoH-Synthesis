@@ -16,6 +16,26 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+# Create a custom L2 normalization layer
+@tf.keras.utils.register_keras_serializable()
+class L2Normalize(tf.keras.layers.Layer):
+    """Custom L2 normalization layer that can be properly serialized."""
+
+    def __init__(self, axis=1, name=None, **kwargs):
+        super(L2Normalize, self).__init__(name=name, **kwargs)
+        self.axis = axis
+
+    def call(self, inputs):
+        return tf.nn.l2_normalize(inputs, axis=self.axis)
+
+    def get_config(self):
+        config = super(L2Normalize, self).get_config()
+        config.update({
+            'axis': self.axis
+        })
+        return config
+
+
 @tf.keras.utils.register_keras_serializable()
 class TripletSemiHardLossVectorized(tf.keras.losses.Loss):
     def __init__(self, margin=1.0, name="triplet_semihard_loss_vectorized", **kwargs):
@@ -110,7 +130,6 @@ class TripletSemiHardLossVectorized(tf.keras.losses.Loss):
         config = super().get_config()
         config.update({
             "margin": self.margin,
-            # "name": self.name # name is already handled by super()
         })
         return config
 
@@ -152,16 +171,6 @@ def create_tf_dataset(
 ) -> tf.data.Dataset:
     """
     Creates a TensorFlow dataset from a DataFrame with better memory efficiency.
-
-    Args:
-        df: Input DataFrame
-        batch_size: Batch size for training
-        feature_columns: List of feature column names (if None, uses all except label)
-        label_column: Name of the label column
-        shuffle_buffer: Buffer size for shuffling (if None, uses dataset length)
-
-    Returns:
-        tf.data.Dataset ready for training
     """
     if feature_columns is None:
         feature_columns = [col for col in df.columns if col != label_column]
@@ -297,16 +306,7 @@ def setup_callbacks(config: TripletTrainingConfig, model_save_path: str) -> list
 def create_base_cnn(input_dim: int, embedding_dim: int = 64, hidden_dim: int = 32):
     """
     Create a CNN suitable for 32-length input sequences.
-
-    Args:
-        input_dim: Length of input sequence (32)
-        embedding_dim: Size of output embedding (recommended: 32-128)
-        hidden_dim: Base number of filters (reduced for shorter sequences)
-
-    Critique: Original CNN was over-engineered for 32-length inputs.
-    - 4 conv blocks with 4 pooling operations would reduce 32 -> 2 dimensions
-    - This causes information loss and potential vanishing gradients
-    - For 32-length inputs, 2-3 conv blocks are sufficient
+    FIXED: Uses custom L2Normalize layer instead of Lambda with tf reference.
     """
     return tf.keras.Sequential([
         tf.keras.layers.InputLayer(input_shape=(input_dim, 1)),
@@ -337,24 +337,16 @@ def create_base_cnn(input_dim: int, embedding_dim: int = 64, hidden_dim: int = 3
         tf.keras.layers.Dropout(0.3),  # Increased dropout for regularization
         # No activation for embeddings
         tf.keras.layers.Dense(embedding_dim, activation=None),
-        tf.keras.layers.Lambda(lambda x: tf.nn.l2_normalize(
-            x, axis=1))  # L2 normalize embeddings
+
+        # FIXED: Use custom L2Normalize layer instead of Lambda
+        L2Normalize(axis=1)
     ], name="baseCNN")
 
 
 def create_base_gru(input_dim: int, embedding_dim: int = 64, hidden_dim: int = 32):
     """
     Create a GRU-based network for sequence modeling.
-
-    Args:
-        input_dim: Length of input sequence  
-        embedding_dim: Size of output embedding
-        hidden_dim: Size of GRU hidden state
-
-    Critique of original GRU:
-    - Single GRU layer might not capture complex temporal patterns
-    - No regularization except recurrent_dropout
-    - Missing normalization which can help with training stability
+    FIXED: Uses custom L2Normalize layer instead of Lambda with tf reference.
     """
     inputs = tf.keras.layers.Input(shape=(input_dim, 1))
 
@@ -384,9 +376,8 @@ def create_base_gru(input_dim: int, embedding_dim: int = 64, hidden_dim: int = 3
     x = tf.keras.layers.Dropout(0.3)(x)
     x = tf.keras.layers.Dense(embedding_dim, activation=None)(x)
 
-    # L2 normalize embeddings for better triplet loss performance
-    outputs = tf.keras.layers.Lambda(
-        lambda x: tf.nn.l2_normalize(x, axis=1))(x)
+    # FIXED: Use custom L2Normalize layer instead of Lambda
+    outputs = L2Normalize(axis=1)(x)
 
     return tf.keras.Model(inputs=inputs, outputs=outputs, name="baseGRU")
 
