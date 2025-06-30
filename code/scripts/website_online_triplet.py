@@ -301,7 +301,7 @@ def main():
     # Initialize GPU
     init_gpu.initialize_gpus()
 
-    locations = ['LOC1', 'LOC2', 'LOC3']
+    locations = ['Lausanne', 'Leuven', 'Singapore']
 
     logger.info("Loading Dataset...")
     # Load the dataset
