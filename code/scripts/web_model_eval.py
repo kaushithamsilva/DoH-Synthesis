@@ -9,6 +9,13 @@ import model_utils
 from website_online_triplet import TripletSemiHardLossVectorized
 
 
+def l2_normalize_fix(x):
+    # This is a workaround for the issue with tf.nn.l2_normalize
+    """Fixed L2 normalization function that doesn't rely on tf in lambda scope"""
+    import tensorflow as tf
+    return tf.nn.l2_normalize(x, axis=1)
+
+
 def get_batched_encode(web_model, x, batch_size=2048):
     """
     Run web_model on x in smaller chunks to fit memory.
