@@ -13,7 +13,7 @@ def create_tf_dataset(df, batch_size):
     Creates a TensorFlow dataset from a DataFrame, yielding features and website labels.
     """
     # Extract features (data after 'Location' and 'Website') and website labels
-    features = df.iloc[:, 2:].values.astype(np.float32)
+    features = df.iloc[:, 1:].values.astype(np.float32)
     website_labels = df['Website'].values
 
     # Create a tf.data.Dataset from features and labels
@@ -84,10 +84,14 @@ if __name__ == '__main__':
     print("Loading Dataset...")
     # load the dataset
     df = pd.read_csv(
-        f"../../dataset/processed/LOC1-LOC2-LOC3-RPI-CL-GOOGLE-CLOUD-processed_dataset.csv"
+        f"../../dataset/processed/LOC1-LOC2-LOC3-RPI-CL-GOOGLE-CLOUD-processed_dataset.csv",
+        index_col=0,
     )
 
-    length = len(df.columns) - 2  # subtract the two label columns
+    length = 32
+    df.drop(columns=['Location', 'Resolver',
+            'Client', 'Platform'], inplace=True)
+    df = df.loc[:, ['Website'] + [str(i) for i in range(length)]]
 
     num_train_samples = 1200
     # get train-test set (assuming this splits the original df into train_df and test_df)
