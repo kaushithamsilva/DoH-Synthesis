@@ -6,7 +6,7 @@ import numpy as np
 import tensorflow as tf
 from sklearn.preprocessing import LabelEncoder
 import model_utils
-from website_online_triplet import TripletSemiHardLossVectorized, L2Normalize, TripletTrainingConfig, create_base_cnn, create_model_and_compile
+from website_online_triplet import TripletSemiHardLossVectorized, TripletTrainingConfig, create_base_cnn, create_model_and_compile
 
 
 def get_batched_encode(web_model, x, batch_size=2048):
@@ -53,9 +53,6 @@ if __name__ == '__main__':
         'ResidualBlock': ResidualBlock,
         "TransformerEncoderBlock": triplet_functions.TransformerEncoderBlock,
         "TripletSemiHardLossVectorized": TripletSemiHardLossVectorized,
-        "L2Normalize": L2Normalize,
-        "tf": tf,
-
     }
 
     # 1) Re‑instantiate the model graph
