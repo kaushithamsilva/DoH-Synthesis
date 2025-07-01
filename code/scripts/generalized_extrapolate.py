@@ -330,7 +330,7 @@ def run_location_synthesis_experiment(
     target_features['location'] = target_location
 
     # NOTE: ONLY FOR SINGAPORE
-    target_features['platform'] = 'desktop (aws)'
+    target_features['platform'] = 'Desktop (AWS)'
 
     try:
         target_sequences = select_samples_with_specific_features(
