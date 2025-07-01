@@ -460,7 +460,6 @@ if __name__ == "__main__":
         {
             'target_changes': {
                 'location_singapore': 1.0,
-                'platform_desktop_(aws)': 0.8
             },
             'preserve_attributes': ['resolver_cloudflare', 'client_cloudflare']
         },
