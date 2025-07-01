@@ -489,35 +489,6 @@ if __name__ == "__main__":
             },
             'preserve_attributes': ['client_cloudflare', 'resolver_cloudflare']
         },
-
-        # {
-        #     'name': 'cloudflare_to_firefox',
-        #     'source_criteria': {
-        #         'location': 'lausanne',
-        #         'client': 'cloudflare',
-        #         'resolver': 'google',
-        #         'platform': 'desktop'
-        #     },
-        #     'target_changes': {
-        #         'client_firefox': 1.0,
-        #     },
-        #     'preserve_attributes': ['location_lausanne', 'resolver_google', 'platform_desktop']
-        # },
-
-        # {
-        #     'name': 'multi_attribute_change',
-        #     'source_criteria': {
-        #         'location': 'leuven',
-        #         'client': 'cloudflare',
-        #         'resolver': 'cloudflare',
-        #         'platform': 'desktop'
-        #     },
-        #     'target_changes': {
-        #         'location_singapore': 0.8,
-        #         'resolver_google': 0.6,
-        #     },
-        #     'preserve_attributes': ['client_cloudflare', 'platform_desktop']
-        # }
     ]
 
     # Run experiments
