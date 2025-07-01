@@ -459,6 +459,7 @@ if __name__ == "__main__":
 
     # Load models and data
     vae_model, discriminators, attribute_names, test_website_ids, test_df = load_models_and_data()
+    print(f"Length of test website IDs: {len(test_website_ids)}")
 
     # Create batch synthesizer
     synthesizer = BatchMultiAttributeSynthesizer(vae_model, discriminators)
