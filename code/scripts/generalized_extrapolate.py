@@ -398,7 +398,7 @@ if __name__ == "__main__":
     experiment_params = {
         'num_steps': 100,
         'step_size': 0.1,
-        'pull_strength': 0.001,
+        'pull_strength': 0.010,
         'target_threshold': 5.0,
         'fixed_threshold': 0.2,
     }
