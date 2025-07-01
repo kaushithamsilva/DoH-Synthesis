@@ -10,6 +10,7 @@ from init_dataset import get_train_test_dataset
 from train_vae import VAE
 import model_utils
 from hyperplane import Hyperplane
+from website_online_triplet import TripletTrainingConfig, create_base_cnn, create_model_and_compile
 
 # --- Configuration Paths ---
 DATASET_CSV = '../../dataset/processed/LOC1-LOC2-LOC3-RPI-CL-GOOGLE-CLOUD-processed_dataset.csv'
@@ -43,59 +44,6 @@ FEATURE_ATTRIBUTES = {
     "resolver": RESOLVERS,
     "platform": PLATFORMS
 }
-
-
-class TripletTrainingConfig:
-    """Configuration for triplet model"""
-
-    def __init__(self, feature_length=32, num_train_samples=1200, batch_size=128,
-                 epochs=1000, learning_rate=1e-4, weight_decay=1e-5, margin=0.2,
-                 patience=50, validation_split=0.2, base_network_name='baseCNN'):
-        self.feature_length = feature_length
-        self.num_train_samples = num_train_samples
-        self.batch_size = batch_size
-        self.epochs = epochs
-        self.learning_rate = learning_rate
-        self.weight_decay = weight_decay
-        self.margin = margin
-        self.patience = patience
-        self.validation_split = validation_split
-        self.base_network_name = base_network_name
-
-
-def create_base_cnn(input_length, embedding_dim=64):
-    """Create base CNN for triplet model"""
-    model = tf.keras.Sequential([
-        tf.keras.layers.Input(shape=(input_length,)),
-        tf.keras.layers.Reshape((input_length, 1)),
-        tf.keras.layers.Conv1D(32, 3, activation='relu'),
-        tf.keras.layers.Conv1D(64, 3, activation='relu'),
-        tf.keras.layers.GlobalMaxPooling1D(),
-        tf.keras.layers.Dense(128, activation='relu'),
-        tf.keras.layers.Dense(embedding_dim)
-    ])
-    return model
-
-
-def create_model_and_compile(base_network, config):
-    """Create and compile triplet model"""
-    # Create triplet inputs
-    anchor_input = tf.keras.layers.Input(shape=(config.feature_length,))
-    positive_input = tf.keras.layers.Input(shape=(config.feature_length,))
-    negative_input = tf.keras.layers.Input(shape=(config.feature_length,))
-
-    # Get embeddings
-    anchor_embedding = base_network(anchor_input)
-    positive_embedding = base_network(positive_input)
-    negative_embedding = base_network(negative_input)
-
-    # Create model
-    model = tf.keras.Model(
-        inputs=[anchor_input, positive_input, negative_input],
-        outputs=[anchor_embedding, positive_embedding, negative_embedding]
-    )
-
-    return model
 
 
 class MultiAttributeSynthesizer:
