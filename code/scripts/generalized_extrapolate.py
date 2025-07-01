@@ -14,7 +14,7 @@ from hyperplane import Hyperplane
 DATASET_CSV = '../../dataset/processed/processed_dataset.csv'
 SAVE_PATH = '../../models/binary_ci_vae/'
 CHECKPOINT_PATH = os.path.join(SAVE_PATH, 'checkpoints/')
-CHECKPOINT_EPOCH = 100
+CHECKPOINT_EPOCH = 700
 DISCRIMINATOR_PATH = CHECKPOINT_PATH
 VAE_MODEL_NAME = f'vae_e{CHECKPOINT_EPOCH}'
 
@@ -404,7 +404,7 @@ if __name__ == "__main__":
     }
 
     source_features_1 = {
-        "location": "lausanne",
+        "location": "leuven",
         "client": "cloudflare",
         "resolver": "cloudflare",
         "platform": "desktop"
@@ -418,7 +418,7 @@ if __name__ == "__main__":
 
         run_location_synthesis_experiment(
             vae_model, discriminators, attribute_names,
-            test_df, source_features_1, "leuven", experiment_params,
+            test_df, source_features_1, "singapore", experiment_params,
             website_id=website_id
         )
 
