@@ -95,11 +95,15 @@ class MultiAttributeSynthesizer:
         if self.website_model is None:
             return 0.0
 
+        # expand dimensions of the original and synthesized sequences
+        original_sequence = tf.expand_dims(original_sequence, axis=-1)
+        synthesized_sequence = tf.expand_dims(synthesized_sequence, axis=-1)
+
         # Get embeddings for both sequences
-        original_embedding = self.website_model.layers[3](
+        original_embedding = self.website_model.predict(
             original_sequence)  # base network
-        synthesized_embedding = self.website_model.layers[3](
-            synthesized_sequence)
+        synthesized_embedding = self.website_model.predict(
+            synthesized_sequence)  # base network
 
         # Compute Euclidean distance
         distance = tf.norm(original_embedding - synthesized_embedding, axis=1)
