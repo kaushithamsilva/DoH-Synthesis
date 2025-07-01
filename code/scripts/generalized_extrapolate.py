@@ -11,7 +11,7 @@ import model_utils
 from hyperplane import Hyperplane
 
 # --- Configuration Paths ---
-DATASET_CSV = '../../dataset/processed/processed_dataset.csv'
+DATASET_CSV = '../../dataset/processed/LOC1-LOC2-LOC3-RPI-CL-GOOGLE-CLOUD-processed_dataset.csv'
 SAVE_PATH = '../../models/binary_ci_vae/'
 CHECKPOINT_PATH = os.path.join(SAVE_PATH, 'checkpoints/')
 CHECKPOINT_EPOCH = 700
@@ -364,7 +364,7 @@ def load_models_and_data():
 
     print("Loading dataset...")
     train_ds, test_ds, train_website_ids, test_website_ids, attribute_names = get_train_test_dataset(
-        DATASET_CSV, num_train=1200, num_test=300, batch_size=1)
+        DATASET_CSV, num_train=1200, num_test=300, batch_size=1, length=SEQUENCE_LENGTH)
 
     # Load original dataset for actual traffic sequences
     df_original = pd.read_csv(DATASET_CSV, index_col=0)
