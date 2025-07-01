@@ -23,8 +23,8 @@ BASE_OUTPUT_DIR = '../../figures/traffic_extrapolation/'
 os.makedirs(BASE_OUTPUT_DIR, exist_ok=True)
 
 # Model parameters (should match training configuration)
-SEQUENCE_LENGTH = 128  # Assuming 128 time steps for network traffic
-LATENT_DIM = 32  # Adjust based on your VAE configuration
+SEQUENCE_LENGTH = 32  # Assuming 128 time steps for network traffic
+LATENT_DIM = 8  # Adjust based on your VAE configuration
 
 # Dataset feature definitions
 LOCATIONS = ["lausanne", "leuven", "singapore"]
