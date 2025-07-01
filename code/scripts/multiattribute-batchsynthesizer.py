@@ -15,7 +15,7 @@ from hyperplane import Hyperplane
 DATASET_CSV = '../../dataset/processed/LOC1-LOC2-LOC3-RPI-CL-GOOGLE-CLOUD-processed_dataset.csv'
 SAVE_PATH = '../../models/binary_ci_vae/'
 CHECKPOINT_PATH = os.path.join(SAVE_PATH, 'checkpoints/')
-CHECKPOINT_EPOCH = 700
+CHECKPOINT_EPOCH = 950
 DISCRIMINATOR_PATH = CHECKPOINT_PATH
 VAE_MODEL_NAME = f'vae_e{CHECKPOINT_EPOCH}'
 
