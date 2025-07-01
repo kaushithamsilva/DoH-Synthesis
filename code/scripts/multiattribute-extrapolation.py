@@ -442,7 +442,7 @@ if __name__ == "__main__":
         'step_size': 0.1,
         'pull_strength': 0.005,
         'max_latent_norm': 10 * np.sqrt(LATENT_DIM),
-        'identity_threshold': 0.2,  # Triplet margin threshold
+        'identity_threshold': 10.0,  # Triplet margin threshold
         'preserve_threshold': 0.3,
     }
 
