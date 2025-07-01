@@ -400,7 +400,8 @@ if __name__ == "__main__":
         'step_size': 0.1,
         'pull_strength': 0.010,
         'target_threshold': 5.0,
-        'fixed_threshold': 0.2,
+        # leveun to singapore, singapore data collected in desktop(aws), so allow it to deviate
+        'fixed_threshold': -5.0,
     }
 
     source_features_1 = {
