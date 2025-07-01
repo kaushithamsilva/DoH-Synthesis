@@ -41,6 +41,9 @@ FEATURE_ATTRIBUTES = {
     "platform": PLATFORMS
 }
 
+# Regularization strength for pulling towards center
+CENTER_PULL_REGULARIZER = 0.001
+
 
 class BatchMultiAttributeSynthesizer:
     """Efficient batch synthesizer using direct hyperplane projection"""
@@ -118,6 +121,10 @@ class BatchMultiAttributeSynthesizer:
 
         # Move alpha distance away from boundary in positive normal direction
         z_final = z_projected + alpha * tf.expand_dims(combined_normal, axis=0)
+
+        # regularization: move towards the center of the latent space
+        z_center = tf.zeros_like(z_final)
+        z_final = z_final + CENTER_PULL_REGULARIZER * (z_center - z_final)
 
         return z_final
 
@@ -364,7 +371,7 @@ def save_synthesized_dataset(sequences: np.ndarray,
 
 def run_batch_synthesis_experiment(synthesizer, test_df, source_criteria,
                                    target_changes, preserve_attributes,
-                                   website_ids, alpha_values=[0.5, 1.0, 2.0]):
+                                   website_ids, alpha_values=[0.1, 0.2, 0.3, 0.5, 1.0, 2.0]):
     """Run batch synthesis experiment for all specified website IDs"""
 
     print(f"\n=== Batch Synthesis Experiment ===")
@@ -480,7 +487,7 @@ if __name__ == "__main__":
             'target_changes': {
                 'location_singapore': 1.0,
             },
-            'preserve_attributes': ['client_cloudflare', 'resolver_cloudflare', 'platform_desktop']
+            'preserve_attributes': ['client_cloudflare', 'resolver_cloudflare']
         },
 
         # {
