@@ -23,8 +23,8 @@ BASE_OUTPUT_DIR = '../../figures/traffic_extrapolation/'
 os.makedirs(BASE_OUTPUT_DIR, exist_ok=True)
 
 # Model parameters (should match training configuration)
-SEQUENCE_LENGTH = 32  # Assuming 128 time steps for network traffic
-LATENT_DIM = 8  # Adjust based on your VAE configuration
+SEQUENCE_LENGTH = 32
+LATENT_DIM = 8
 
 # Dataset feature definitions
 LOCATIONS = ["lausanne", "leuven", "singapore"]
@@ -71,7 +71,7 @@ def select_samples_with_specific_features(df, feature_criteria, website_id, num_
             f"Could not find {num_samples} samples with features: {feature_criteria} and website_id: {website_id}")
 
     # Extract features and attributes
-    feature_cols = [str(i) for i in range(128)]
+    feature_cols = [str(i) for i in range(SEQUENCE_LENGTH)]
 
     # randomly sample from filtered_df
     selected_df = filtered_df.sample(n=num_samples, random_state=None)
