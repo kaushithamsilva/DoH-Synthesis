@@ -329,6 +329,9 @@ def run_location_synthesis_experiment(
     target_features = source_features.copy()
     target_features['location'] = target_location
 
+    # NOTE: ONLY FOR SINGAPORE
+    target_features['platform'] = 'desktop_(aws)'
+
     try:
         target_sequences = select_samples_with_specific_features(
             test_df, target_features, website_id, num_samples=1
@@ -398,14 +401,14 @@ if __name__ == "__main__":
     experiment_params = {
         'num_steps': 100,
         'step_size': 0.1,
-        'pull_strength': 0.010,
+        'pull_strength': 0.005,
         'target_threshold': 5.0,
         # leveun to singapore, singapore data collected in desktop(aws), so allow it to deviate
-        'fixed_threshold': -5.0,
+        'fixed_threshold': -10.0,
     }
 
     source_features_1 = {
-        "location": "singapore",
+        "location": "leuven",
         "client": "cloudflare",
         "resolver": "cloudflare",
         "platform": "desktop"
@@ -419,7 +422,7 @@ if __name__ == "__main__":
 
         run_location_synthesis_experiment(
             vae_model, discriminators, attribute_names,
-            test_df, source_features_1, "leuven", experiment_params,
+            test_df, source_features_1, "singapore", experiment_params,
             website_id=website_id
         )
 
