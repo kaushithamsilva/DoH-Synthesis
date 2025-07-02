@@ -12,7 +12,7 @@ import model_utils
 from hyperplane import Hyperplane
 
 # --- Configuration Paths ---
-DATASET_CSV = '../../dataset/processed/LOC1-LOC2-LOC3-RPI-CL-GOOGLE-CLOUD-processed_dataset.csv'
+DATASET_CSV = '../../dataset/processed/processed_dataset.csv'
 SAVE_PATH = '../../models/binary_ci_vae/'
 CHECKPOINT_PATH = os.path.join(SAVE_PATH, 'checkpoints/')
 CHECKPOINT_EPOCH = 950
