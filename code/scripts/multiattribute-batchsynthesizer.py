@@ -371,7 +371,7 @@ def save_synthesized_dataset(sequences: np.ndarray,
 
 def run_batch_synthesis_experiment(synthesizer, test_df, source_criteria,
                                    target_changes, preserve_attributes,
-                                   website_ids, alpha_values=[0.1, 0.2, 0.3, 0.5, 1.0, 2.0]):
+                                   website_ids, alpha_values=[0.3, 0.5, 1.0, 2.0]):
     """Run batch synthesis experiment for all specified website IDs"""
 
     print(f"\n=== Batch Synthesis Experiment ===")
