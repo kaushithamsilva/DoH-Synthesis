@@ -13,7 +13,7 @@ from sklearn.metrics import classification_report
 from init_dataset import get_train_test_dataset
 
 # --- Configuration Paths (Mirroring main synthesis script for consistency) ---
-DATASET_CSV = '../../dataset/processed/LOC1-LOC2-LOC3-RPI-CL-GOOGLE-CLOUD-processed_dataset.csv'
+DATASET_CSV = '../../dataset/processed/processed_dataset.csv'
 BASE_OUTPUT_DIR = '../../dataset/synthesized/'  # Where synthetic data is saved
 
 # Model parameters (should match synthesis configuration)
