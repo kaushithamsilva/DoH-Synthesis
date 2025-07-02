@@ -35,7 +35,7 @@ if __name__ == '__main__':
     import classification
 
     attribute = 'Location'
-    attribute_values = ['Lausanne', 'Leuven']
+    attribute_values = ['Leuven', 'Singapore']
     train_attribute = attribute_values[0]
     test_attribute = attribute_values[1]
 
