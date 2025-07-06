@@ -161,8 +161,8 @@ if __name__ == '__main__':
 
     # Initialize VAE
     input_dim = length
-    latent_dim = 8
-    hidden_dim = 16
+    latent_dim = 16
+    hidden_dim = 24
     vae_model = ConvVAE_BatchNorm(input_dim, latent_dim, hidden_dim)
     # Build shapes
     for x_batch, _ in train_ds.take(1):
