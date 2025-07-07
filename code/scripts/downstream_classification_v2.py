@@ -266,4 +266,67 @@ if __name__ == "__main__":
                                         zero_division=0))
             print("-------------------------------------------------------------------")
 
+    # --- Phase 3: Mixed Data Test (Train on Real 'Leuven' + Synthetic 'Singapore', Test on Real 'Singapore') ---
+    print("\n" + "="*60)
+    print("Phase 3: Mixed Data Classification (Train on Real 'Leuven' + Synthetic 'Singapore' Website Data, Test on Real 'Singapore' Website Data)")
+    print("Objective: Evaluate performance when training on a mix of real cross-location data and synthetic data.")
+    print("="*60)
+
+    # Ensure df_train_baseline_leuven and df_train_synthetic are not empty before concatenating
+    if df_train_baseline_leuven.empty and df_train_synthetic.empty:
+        print("Both real 'Leuven' and synthetic 'Singapore' training data are empty. Skipping Phase 3.")
+    elif X_test_real_singapore.shape[0] == 0:
+        print("Real 'Singapore' test data is empty. Skipping Phase 3.")
+    else:
+        # Concatenate the DataFrames
+        # Ensure 'Website' and feature columns (0 to SEQUENCE_LENGTH-1) are consistently handled.
+        # It's safer to select relevant columns before concatenating if DataFrames have many other columns.
+        common_cols = [str(i) for i in range(
+            SEQUENCE_LENGTH)] + ['Website', 'Location']
+
+        # Filter to common columns to avoid issues if other columns differ
+        df_train_mixed = pd.concat([
+            df_train_baseline_leuven[common_cols] if not df_train_baseline_leuven.empty else pd.DataFrame(
+                columns=common_cols),
+            df_train_synthetic[common_cols] if not df_train_synthetic.empty else pd.DataFrame(
+                columns=common_cols)
+        ], ignore_index=True)
+
+        if df_train_mixed.empty:
+            print(
+                "Combined training data is empty after concatenation. Skipping Phase 3.")
+        else:
+            X_train_mixed, y_train_mixed = prepare_classifier_data(
+                df=df_train_mixed,
+                sequence_length=SEQUENCE_LENGTH,
+                label_encoder=website_encoder
+            )
+
+            if X_train_mixed.shape[0] == 0:
+                print("Prepared mixed training data is empty. Skipping Phase 3.")
+            else:
+                mixed_classifier = build_1d_cnn_classifier(
+                    input_shape=(SEQUENCE_LENGTH, 1), num_classes=num_website_classes
+                )
+
+                print(
+                    "\nTraining classifier on mixed (Real 'Leuven' + Synthetic 'Singapore') website data...")
+                mixed_classifier.fit(X_train_mixed, y_train_mixed,
+                                     epochs=10, batch_size=32, validation_split=0.2, verbose=1)
+
+                print(
+                    "\nEvaluating classifier on real 'Singapore' website data (same test set as baseline)...")
+                y_pred_mixed_probs = mixed_classifier.predict(
+                    X_test_real_singapore)
+                y_pred_mixed = np.argmax(y_pred_mixed_probs, axis=1)
+
+                print(f"\n--- Mixed Data Results (Train on Real 'Leuven' + Synthetic 'Singapore' Websites, Test on Real 'Singapore' Websites) ---")
+                print(classification_report(y_test_real_singapore, y_pred_mixed,
+                                            labels=np.arange(
+                                                num_website_classes),
+                                            target_names=[
+                                                str(c) for c in website_encoder.classes_],
+                                            zero_division=0))
+                print(
+                    "-------------------------------------------------------------------")
     print("\n=== Downstream Classifier Evaluation Complete ===")
