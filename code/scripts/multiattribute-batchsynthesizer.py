@@ -15,7 +15,7 @@ from hyperplane import Hyperplane
 DATASET_CSV = '../../dataset/processed/processed_dataset.csv'
 SAVE_PATH = '../../models/binary_ci_vae/'
 CHECKPOINT_PATH = os.path.join(SAVE_PATH, 'checkpoints/')
-CHECKPOINT_EPOCH = 950
+CHECKPOINT_EPOCH = 500
 DISCRIMINATOR_PATH = CHECKPOINT_PATH
 VAE_MODEL_NAME = f'vae_e{CHECKPOINT_EPOCH}'
 
@@ -25,7 +25,7 @@ os.makedirs(BASE_OUTPUT_DIR, exist_ok=True)
 
 # Model parameters (should match training configuration)
 SEQUENCE_LENGTH = 32
-LATENT_DIM = 8
+LATENT_DIM = 16
 
 # Dataset feature definitions
 LOCATIONS = ["lausanne", "leuven", "singapore"]
