@@ -321,7 +321,7 @@ def create_synthesized_metadata(original_metadata: pd.DataFrame,
 
 def run_batch_synthesis_experiment(synthesizer, test_df, source_criteria,
                                    target_changes, preserve_attributes,
-                                   website_ids, alpha_values=np.arange(0.5, 5.1, 0.5)):
+                                   website_ids, alpha_values=np.arange(0.1, 5.1, 0.1)):
     """Run batch synthesis experiment for all specified website IDs using all alpha values"""
 
     print(f"\n=== Batch Synthesis Experiment ===")
@@ -456,7 +456,7 @@ def save_synthesized_dataset_with_alphas(sequences: np.ndarray,
     # Create filename based on target changes
     target_str = "_".join(
         [f"{k.replace('_', '-')}" for k in target_changes.keys()])
-    filename = f"synthesized_{target_str}_all_alphas.csv"
+    filename = f"synthesized_{target_str}.csv"
     filepath = os.path.join(BASE_OUTPUT_DIR, filename)
 
     # Create DataFrame with metadata and sequence features
