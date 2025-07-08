@@ -170,7 +170,7 @@ if __name__ == "__main__":
 
         print("\nTraining baseline classifier on real 'Leuven' website data...")
         baseline_classifier.fit(X_train_baseline, y_train_baseline,
-                                epochs=10, batch_size=32, validation_split=0.2, verbose=1)
+                                epochs=10, batch_size=32, validation_split=0.2, verbose=1, shuffle=True)
 
         print("\nEvaluating baseline classifier on real 'Singapore' website data...")
         y_pred_baseline_probs = baseline_classifier.predict(
@@ -248,7 +248,7 @@ if __name__ == "__main__":
 
             print("\nTraining classifier on synthetic 'Website' data...")
             synthetic_classifier.fit(X_train_synthetic, y_train_synthetic,
-                                     epochs=10, batch_size=32, validation_split=0.2, verbose=1)
+                                     epochs=10, batch_size=32, validation_split=0.2, verbose=1, shuffle=True)
 
             print(
                 "\nEvaluating classifier on real 'Singapore' website data (same test set as baseline)...")
@@ -312,7 +312,7 @@ if __name__ == "__main__":
                 print(
                     "\nTraining classifier on mixed (Real 'Leuven' + Synthetic 'Singapore') website data...")
                 mixed_classifier.fit(X_train_mixed, y_train_mixed,
-                                     epochs=10, batch_size=32, validation_split=0.2, verbose=1)
+                                     epochs=10, batch_size=32, validation_split=0.2, verbose=1, shuffle=True)
 
                 print(
                     "\nEvaluating classifier on real 'Singapore' website data (same test set as baseline)...")
