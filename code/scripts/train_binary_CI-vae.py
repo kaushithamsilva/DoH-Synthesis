@@ -13,11 +13,11 @@ import init_gpu
 init_gpu.initialize_gpus()
 
 # --- Configuration Constants ---
-SAVE_PATH = '../../models/binary_ci_vae/'
+SAVE_PATH = '../../models/binary_ci_vae/kl0.01/'
 CHECKPOINT_PATH = os.path.join(SAVE_PATH, 'checkpoints/')
 DISCRIMINATOR_SAVE_PATH = os.path.join(SAVE_PATH, 'discriminators/')
 EPOCH_CHECKPOINT_INTERVAL = 50
-KL_WEIGHT = 0.1
+KL_WEIGHT = 0.01
 CLASSIFICATION_LOSS_WEIGHT = 1.0
 EPOCHS = 1000  # Adjust as needed
 BATCH_SIZE = 256

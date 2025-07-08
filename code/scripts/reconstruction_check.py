@@ -10,8 +10,8 @@ import model_utils
 
 # --- Configuration ---
 DATASET_CSV = '../../dataset/processed/processed_dataset.csv'
-CHECKPOINT_PATH = '../../models/binary_ci_vae/checkpoints/'
-CHECKPOINT_EPOCH = 150
+CHECKPOINT_PATH = '../../models/binary_ci_vae/kl0.01/checkpoints/'
+CHECKPOINT_EPOCH = 1000
 VAE_MODEL_NAME = f'vae_e{CHECKPOINT_EPOCH}'
 SEQUENCE_LENGTH = 32
 NUM_SAMPLES = 6  # Number of test samples to visualize

@@ -13,9 +13,9 @@ from hyperplane import Hyperplane
 
 # --- Configuration Paths ---
 DATASET_CSV = '../../dataset/processed/processed_dataset.csv'
-SAVE_PATH = '../../models/binary_ci_vae/'
+SAVE_PATH = '../../models/binary_ci_vae/kl0.01/'
 CHECKPOINT_PATH = os.path.join(SAVE_PATH, 'checkpoints/')
-CHECKPOINT_EPOCH = 500
+CHECKPOINT_EPOCH = 1000
 DISCRIMINATOR_PATH = CHECKPOINT_PATH
 VAE_MODEL_NAME = f'vae_e{CHECKPOINT_EPOCH}'
 
@@ -371,7 +371,7 @@ def save_synthesized_dataset(sequences: np.ndarray,
 
 def run_batch_synthesis_experiment(synthesizer, test_df, source_criteria,
                                    target_changes, preserve_attributes,
-                                   website_ids, alpha_values=[5.0]):
+                                   website_ids, alpha_values=[1.0, 2.0, 4.0, 5.0]):
     """Run batch synthesis experiment for all specified website IDs"""
 
     print(f"\n=== Batch Synthesis Experiment ===")
