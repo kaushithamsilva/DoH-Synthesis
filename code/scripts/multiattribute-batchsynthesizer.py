@@ -319,16 +319,144 @@ def create_synthesized_metadata(original_metadata: pd.DataFrame,
     return synth_metadata
 
 
-def save_synthesized_dataset(sequences: np.ndarray,
-                             metadata: pd.DataFrame,
-                             target_changes: Dict[str, float],
-                             quality_metrics: Dict = None):
-    """Save synthesized dataset to CSV"""
+def run_batch_synthesis_experiment(synthesizer, test_df, source_criteria,
+                                   target_changes, preserve_attributes,
+                                   website_ids, alpha_values=np.arange(0.5, 5.1, 0.5)):
+    """Run batch synthesis experiment for all specified website IDs using all alpha values"""
+
+    print(f"\n=== Batch Synthesis Experiment ===")
+    print(f"Source criteria: {source_criteria}")
+    print(f"Target changes: {target_changes}")
+    print(f"Preserve attributes: {preserve_attributes}")
+    print(f"Website IDs: {len(website_ids)} websites")
+    print(f"Alpha values: {alpha_values}")
+
+    # Select source samples for all specified websites
+    source_sequences, source_metadata, source_df = select_source_samples(
+        test_df, source_criteria, website_ids
+    )
+
+    if len(source_sequences) == 0:
+        print("No samples found matching the criteria")
+        return None, None
+
+    source_sequences_tf = tf.constant(source_sequences, dtype=tf.float32)
+    total_samples = len(source_sequences)
+
+    # Store all synthesized samples and their metadata
+    all_synthesized_sequences = []
+    all_synthesized_metadata = []
+    all_quality_metrics = []
+
+    total_valid_samples = 0
+    alpha_stats = {}
+
+    # Generate samples for each alpha value
+    for alpha in alpha_values:
+        print(f"\n--- Processing alpha = {alpha} ---")
+
+        # Run synthesis for this alpha
+        synthesized_sequences, valid_mask, scores = synthesizer.batch_synthesize(
+            source_sequences_tf, target_changes, alpha=alpha,
+            preserve_attributes=preserve_attributes, preserve_threshold=0.5
+        )
+
+        valid_count = tf.reduce_sum(tf.cast(valid_mask, tf.int32)).numpy()
+        valid_indices = tf.where(valid_mask).numpy().flatten()
+
+        alpha_stats[alpha] = {
+            'valid_count': valid_count,
+            'total_samples': total_samples,
+            'success_rate': valid_count / total_samples * 100
+        }
+
+        print(f"Valid samples with alpha={alpha}: {valid_count}/{total_samples} "
+              f"({valid_count/total_samples*100:.1f}%)")
+
+        if valid_count > 0:
+            # Extract valid samples
+            valid_sequences = tf.gather(
+                synthesized_sequences, valid_indices).numpy()
+
+            # Create metadata for synthesized samples with alpha information
+            synth_metadata = create_synthesized_metadata(
+                source_metadata, target_changes, valid_indices
+            )
+
+            # Add alpha value to metadata
+            synth_metadata['alpha'] = alpha
+            synth_metadata['source_sample_index'] = valid_indices
+
+            # Evaluate synthesis quality for this alpha
+            quality_metrics = synthesizer.evaluate_synthesis_quality(
+                tf.gather(source_sequences_tf, valid_indices),
+                tf.gather(synthesized_sequences, valid_indices),
+                target_changes
+            )
+
+            # Add alpha to quality metrics
+            quality_metrics['alpha'] = alpha
+            quality_metrics['valid_count'] = valid_count
+
+            # Store results
+            all_synthesized_sequences.append(valid_sequences)
+            all_synthesized_metadata.append(synth_metadata)
+            all_quality_metrics.append(quality_metrics)
+
+            total_valid_samples += valid_count
+
+            # Print discriminator scores for this alpha
+            for attr_name, scores_array in scores.items():
+                valid_scores = scores_array[valid_indices]
+                print(f"  {attr_name} scores: mean={np.mean(valid_scores):.3f}, "
+                      f"std={np.std(valid_scores):.3f}")
+
+    if total_valid_samples == 0:
+        print("No valid samples generated with any alpha value")
+        return None, None
+
+    # Combine all synthesized samples
+    print(f"\n--- Combining results from all alphas ---")
+    combined_sequences = np.vstack(all_synthesized_sequences)
+    combined_metadata = pd.concat(all_synthesized_metadata, ignore_index=True)
+
+    # Save combined synthesized dataset
+    filepath = save_synthesized_dataset_with_alphas(
+        combined_sequences, combined_metadata, target_changes, all_quality_metrics, alpha_stats
+    )
+
+    # Print comprehensive summary statistics
+    print(f"\n=== Synthesis Summary ===")
+    print(f"Original samples: {total_samples}")
+    print(f"Total valid synthesized samples: {total_valid_samples}")
+    print(
+        f"Overall success rate: {total_valid_samples/(total_samples * len(alpha_values))*100:.1f}%")
+    print(f"Websites covered: {len(combined_metadata['Website'].unique())}")
+
+    print(f"\nAlpha-wise breakdown:")
+    for alpha, stats in alpha_stats.items():
+        print(f"  Alpha {alpha}: {stats['valid_count']}/{stats['total_samples']} "
+              f"({stats['success_rate']:.1f}%)")
+
+    print(f"\nSamples per alpha distribution:")
+    alpha_distribution = combined_metadata['alpha'].value_counts().sort_index()
+    for alpha, count in alpha_distribution.items():
+        print(f"  Alpha {alpha}: {count} samples")
+
+    return filepath, all_quality_metrics
+
+
+def save_synthesized_dataset_with_alphas(sequences: np.ndarray,
+                                         metadata: pd.DataFrame,
+                                         target_changes: Dict[str, float],
+                                         quality_metrics_list: List[Dict],
+                                         alpha_stats: Dict):
+    """Save synthesized dataset with alpha information to CSV"""
 
     # Create filename based on target changes
     target_str = "_".join(
         [f"{k.replace('_', '-')}" for k in target_changes.keys()])
-    filename = f"synthesized_{target_str}.csv"
+    filename = f"synthesized_{target_str}_all_alphas.csv"
     filepath = os.path.join(BASE_OUTPUT_DIR, filename)
 
     # Create DataFrame with metadata and sequence features
@@ -347,118 +475,48 @@ def save_synthesized_dataset(sequences: np.ndarray,
     print(
         f"Saved synthesized dataset with {len(result_df)} samples to: {filepath}")
 
-    # Save quality metrics if provided
-    if quality_metrics:
-        metrics_file = filepath.replace('.csv', '_metrics.txt')
-        with open(metrics_file, 'w') as f:
-            f.write(f"Synthesis Quality Metrics\n")
-            f.write(f"Target Changes: {target_changes}\n\n")
+    # Save comprehensive quality metrics
+    metrics_file = filepath.replace('.csv', '_metrics.txt')
+    with open(metrics_file, 'w') as f:
+        f.write(f"Synthesis Quality Metrics - All Alphas\n")
+        f.write(f"Target Changes: {target_changes}\n\n")
 
-            for metric_name, values in quality_metrics.items():
+        # Alpha-wise statistics
+        f.write("Alpha-wise Performance:\n")
+        for alpha, stats in alpha_stats.items():
+            f.write(f"  Alpha {alpha}: {stats['valid_count']}/{stats['total_samples']} "
+                    f"({stats['success_rate']:.1f}%)\n")
+        f.write("\n")
+
+        # Sample distribution
+        f.write("Sample Distribution by Alpha:\n")
+        alpha_distribution = metadata['alpha'].value_counts().sort_index()
+        for alpha, count in alpha_distribution.items():
+            f.write(f"  Alpha {alpha}: {count} samples\n")
+        f.write("\n")
+
+        # Detailed metrics for each alpha
+        for metrics in quality_metrics_list:
+            alpha = metrics['alpha']
+            valid_count = metrics['valid_count']
+            f.write(f"Alpha {alpha} Metrics (n={valid_count}):\n")
+
+            for metric_name, values in metrics.items():
+                if metric_name in ['alpha', 'valid_count']:
+                    continue
+
                 if isinstance(values, dict):
-                    f.write(f"{metric_name}:\n")
+                    f.write(f"  {metric_name}:\n")
                     for sub_name, sub_values in values.items():
-                        f.write(
-                            f"  {sub_name}: mean={np.mean(sub_values):.4f}, std={np.std(sub_values):.4f}\n")
+                        f.write(f"    {sub_name}: mean={np.mean(sub_values):.4f}, "
+                                f"std={np.std(sub_values):.4f}\n")
                 else:
-                    f.write(
-                        f"{metric_name}: mean={np.mean(values):.4f}, std={np.std(values):.4f}\n")
+                    f.write(f"  {metric_name}: mean={np.mean(values):.4f}, "
+                            f"std={np.std(values):.4f}\n")
+            f.write("\n")
 
-        print(f"Saved quality metrics to: {metrics_file}")
-
+    print(f"Saved comprehensive quality metrics to: {metrics_file}")
     return filepath
-
-
-def run_batch_synthesis_experiment(synthesizer, test_df, source_criteria,
-                                   target_changes, preserve_attributes,
-                                   website_ids, alpha_values=[1.0, 2.0, 4.0, 5.0]):
-    """Run batch synthesis experiment for all specified website IDs"""
-
-    print(f"\n=== Batch Synthesis Experiment ===")
-    print(f"Source criteria: {source_criteria}")
-    print(f"Target changes: {target_changes}")
-    print(f"Preserve attributes: {preserve_attributes}")
-    print(f"Website IDs: {len(website_ids)} websites")
-
-    # Select source samples for all specified websites
-    source_sequences, source_metadata, source_df = select_source_samples(
-        test_df, source_criteria, website_ids
-    )
-
-    if len(source_sequences) == 0:
-        print("No samples found matching the criteria")
-        return None, None
-
-    source_sequences_tf = tf.constant(source_sequences, dtype=tf.float32)
-    total_samples = len(source_sequences)
-
-    # Test different alpha values
-    best_alpha = None
-    best_valid_count = 0
-
-    for alpha in alpha_values:
-        print(f"\n--- Testing alpha = {alpha} ---")
-
-        # Run synthesis
-        synthesized_sequences, valid_mask, scores = synthesizer.batch_synthesize(
-            source_sequences_tf, target_changes, alpha=alpha,
-            preserve_attributes=preserve_attributes, preserve_threshold=0.5
-        )
-
-        valid_count = tf.reduce_sum(tf.cast(valid_mask, tf.int32)).numpy()
-        print(
-            f"Valid samples with alpha={alpha}: {valid_count}/{total_samples}")
-
-        if valid_count > best_valid_count:
-            best_valid_count = valid_count
-            best_alpha = alpha
-
-            # Keep best results
-            best_synthesized = synthesized_sequences
-            best_valid_mask = valid_mask
-            best_scores = scores
-
-    if best_alpha is None or best_valid_count == 0:
-        print("No valid samples generated with any alpha value")
-        return None, None
-
-    print(f"\nBest alpha: {best_alpha} with {best_valid_count} valid samples")
-
-    # Extract valid samples
-    valid_indices = tf.where(best_valid_mask).numpy().flatten()
-    valid_sequences = tf.gather(best_synthesized, valid_indices).numpy()
-
-    # Create metadata for synthesized samples
-    synth_metadata = create_synthesized_metadata(
-        source_metadata, target_changes, valid_indices
-    )
-
-    # Evaluate synthesis quality
-    quality_metrics = synthesizer.evaluate_synthesis_quality(
-        tf.gather(source_sequences_tf, valid_indices),
-        tf.gather(best_synthesized, valid_indices),
-        target_changes
-    )
-
-    # Save synthesized dataset
-    filepath = save_synthesized_dataset(
-        valid_sequences, synth_metadata, target_changes, quality_metrics
-    )
-
-    # Print summary statistics
-    print(f"\n=== Synthesis Summary ===")
-    print(f"Original samples: {total_samples}")
-    print(f"Valid synthesized samples: {best_valid_count}")
-    print(f"Success rate: {best_valid_count/total_samples*100:.1f}%")
-    print(f"Best alpha value: {best_alpha}")
-    print(f"Websites covered: {len(synth_metadata['Website'].unique())}")
-
-    for attr_name, scores_array in best_scores.items():
-        valid_scores = scores_array[valid_indices]
-        print(
-            f"{attr_name} scores: mean={np.mean(valid_scores):.3f}, std={np.std(valid_scores):.3f}")
-
-    return filepath, quality_metrics
 
 
 if __name__ == "__main__":
